@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 // --- Configuration ---
 const TRACK_POINTS = 300;
@@ -174,7 +175,11 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ReinhardToneMapping; 
+
+// --- Enable VR / WebXR ---
+renderer.xr.enabled = true;
 container.appendChild(renderer.domElement);
+document.body.appendChild( VRButton.createButton( renderer ) );
 
 // --- Post-Processing Pipeline (BLOOM & DEPTH OF FIELD) ---
 const composer = new EffectComposer(renderer);
@@ -1331,7 +1336,6 @@ function updateMinimap() {
 }
 
 function animate() {
-    requestAnimationFrame(animate);
     const delta = clock.getDelta();
     const time = clock.getElapsedTime();
 
@@ -1658,11 +1662,14 @@ HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(currentLaneOffset - (nex
         speedLineGroup.material.opacity = THREE.MathUtils.lerp(speedLineGroup.material.opacity, speedLineOpacity, delta * 8);
     }
     
-    // Removed by request to keep image perfectly sharp
-    // bokehPass.uniforms.maxblur.value = 0.01;
-    // bokehPass.uniforms.focus.value = isRiding ? Math.min(50, 20 + currentSpeed * 10000) : 50;
-
-    composer.render();
+    // VR vs PC Rendering Pipeline Split
+    if (renderer.xr.isPresenting) {
+        // WebXR stereo-rendering doesn't support basic EffectComposer. Use raw WebGL.
+        renderer.render(scene, camera);
+    } else {
+        // Desktop / Mobile Screen gets full Neon Bloom Pass
+        composer.render();
+    }
 }
 
 // --- Start ---
@@ -1715,4 +1722,4 @@ window.addEventListener('resize', () => {
     composer.setSize(window.innerWidth, window.innerHeight);
 });
 
-animate();
+renderer.setAnimationLoop(animate);
