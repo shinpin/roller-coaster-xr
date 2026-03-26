@@ -54,7 +54,11 @@ let currentHemiLight = null;
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 
+const playerRig = new THREE.Group();
+scene.add(playerRig);
+
 const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500);
+scene.add(camera);
 
 // --- Little Player Cart ---
 const cartGroup = new THREE.Group();
@@ -178,8 +182,62 @@ renderer.toneMapping = THREE.ReinhardToneMapping;
 
 // --- Enable VR / WebXR ---
 renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local'); // Forces seated (0,0,0) tracking relative to our playerRig
+
+const xrRig = new THREE.Group();
+playerRig.add(xrRig);
+
+// Dynamically swap rig architecture when entering/exiting VR
+renderer.xr.addEventListener('sessionstart', () => {
+    xrRig.add(camera);
+    playerRig.add(cartGroup); // Cart physically binds to the rigid track geometry, ignoring head swivels!
+    
+    xrRig.position.set(0, 0, 0);
+    window.vrHeightOffset = 0;
+
+    camera.position.set(0,0,0);
+    camera.rotation.set(0,0,0);
+});
+renderer.xr.addEventListener('sessionend', () => {
+    scene.add(camera);
+    camera.add(cartGroup); // Return to standard desktop HUD binding
+});
+
 container.appendChild(renderer.domElement);
 document.body.appendChild( VRButton.createButton( renderer ) );
+
+// --- VR Controllers Setup ---
+const controller1 = renderer.xr.getController(0);
+controller1.addEventListener('selectstart', onVRSelectStartLeft);
+controller1.addEventListener('squeezestart', onVRSqueezeStart);
+controller1.addEventListener('squeezeend', onVRSqueezeEnd);
+scene.add(controller1);
+
+const controller2 = renderer.xr.getController(1);
+controller2.addEventListener('selectstart', onVRSelectStartRight);
+controller2.addEventListener('squeezestart', onVRSqueezeStart);
+controller2.addEventListener('squeezeend', onVRSqueezeEnd);
+scene.add(controller2);
+
+// Optionally display small hand pointers/models for controllers
+const controllerModelFactory = { createControllerModel: function() { return new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.2), new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true})); } };
+controller1.add( controllerModelFactory.createControllerModel( controller1 ) );
+controller2.add( controllerModelFactory.createControllerModel( controller2 ) );
+
+function onVRSelectStartLeft(event) {
+    if (!isRiding && window.startGame) { window.startGame(); return; }
+    playerLane = -1; // Switch Left
+}
+function onVRSelectStartRight(event) {
+    if (!isRiding && window.startGame) { window.startGame(); return; }
+    playerLane = 1;  // Switch Right
+}
+function onVRSqueezeStart(event) {
+    if(isRiding) isBoosting = true;
+}
+function onVRSqueezeEnd(event) {
+    isBoosting = false;
+}
 
 // --- Post-Processing Pipeline (BLOOM & DEPTH OF FIELD) ---
 const composer = new EffectComposer(renderer);
@@ -319,9 +377,9 @@ function createArrowTexture() {
     for (let i = 0; i < 3; i++) {
         const yOffset = i * 35 + 20;
         ctx.beginPath();
-        ctx.moveTo(20, yOffset - 15);
+        ctx.moveTo(20, yOffset + 15);
         ctx.lineTo(64, yOffset);
-        ctx.lineTo(108, yOffset - 15);
+        ctx.lineTo(108, yOffset + 15);
         ctx.stroke();
     }
     return new THREE.CanvasTexture(canvas);
@@ -1192,9 +1250,35 @@ document.getElementById('debug-btn').addEventListener('click', () => {
 
 document.getElementById('close-inst-btn').addEventListener('click', () => {
     const inst = document.getElementById('instructions-overlay');
-    inst.style.opacity = '0';
-    inst.style.pointerEvents = 'none';
-    setTimeout(() => inst.remove(), 500);
+    inst.style.display = 'none';
+});
+
+document.getElementById('help-btn').addEventListener('click', () => {
+    const inst = document.getElementById('instructions-overlay');
+    if (inst.style.display === 'none' || inst.style.display === '') {
+        inst.style.display = 'flex';
+        inst.style.opacity = '1';
+        inst.style.pointerEvents = 'auto';
+    } else {
+        inst.style.display = 'none';
+    }
+});
+
+document.getElementById('menu-btn').addEventListener('click', () => {
+    if(!isRiding) return;
+    isRiding = false;
+    rideProgress = 0;
+    document.getElementById('advanced-hud').classList.add('hidden');
+    document.getElementById('start-screen').classList.remove('hidden');
+    document.getElementById('start-screen').style.opacity = '1';
+    document.getElementById('menu-btn').style.display = 'none';
+    const bUI = document.getElementById('boost-alert');
+    if(bUI) bUI.classList.add('hidden');
+    const bgMusic = document.getElementById('bg-music');
+    if (bgMusic) {
+        bgMusic.pause();
+        bgMusic.currentTime = 0;
+    }
 });
 
 let audioEnabled = true;
@@ -1527,6 +1611,9 @@ function animate() {
                 document.getElementById('start-screen').classList.remove('hidden');
                 setTimeout(() => { document.getElementById('start-screen').style.opacity = '1'; }, 50);
                 
+                const menuB = document.getElementById('menu-btn');
+                if (menuB) menuB.style.display = 'none';
+                
                 const bgMusic = document.getElementById('bg-music');
                 if (bgMusic) {
                     bgMusic.pause();
@@ -1566,12 +1653,28 @@ function animate() {
             w.rotation.x -= currentSpeed * delta * 1500;
         }
         
-        camera.position.copy(camPos);
-        
-        lookPos.addScaledVector(normal, 1.2);
-        lookPos.addScaledVector(binormal, currentLaneOffset * 0.82); // Look slightly towards lane to preserve banking
-        camera.up.copy(normal);
-        camera.lookAt(lookPos);
+        if (renderer.xr.isPresenting) {
+            playerRig.position.copy(camPos);
+            lookPos.addScaledVector(normal, 1.2);
+            lookPos.addScaledVector(binormal, currentLaneOffset * 0.82);
+            playerRig.up.copy(normal);
+            playerRig.lookAt(lookPos);
+            
+            // Smart VR Height Constraint
+            // Some platforms provide 'local' (Y=0), others provide 'local-floor' (Y=1.6).
+            // This detects if the player is "standing" and gracefully lowers the anchor so they sit exactly inside the cart!
+            if (camera.position.y > 0.8 && window.vrHeightOffset === 0) {
+                 window.vrHeightOffset = -1.5; 
+            }
+            xrRig.position.y = THREE.MathUtils.lerp(xrRig.position.y, window.vrHeightOffset, delta * 2);
+            
+        } else {
+            camera.position.copy(camPos);
+            lookPos.addScaledVector(normal, 1.2);
+            lookPos.addScaledVector(binormal, currentLaneOffset * 0.82);
+            camera.up.copy(normal);
+            camera.lookAt(lookPos);
+        }
         
         const targetFov = 80 + (currentSpeed * 60000);
         camera.fov = THREE.MathUtils.lerp(camera.fov, Math.min(130, targetFov), delta * 4);
@@ -1648,8 +1751,13 @@ HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(currentLaneOffset - (nex
         }
 
     } else {
-        camera.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
-        camera.lookAt(0, 0, 0);
+        if (renderer.xr.isPresenting) {
+            playerRig.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
+            playerRig.lookAt(0, 0, 0);
+        } else {
+            camera.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
+            camera.lookAt(0, 0, 0);
+        }
     }
     
     // Animate Speed Lines and Depth of Field
@@ -1673,7 +1781,7 @@ HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(currentLaneOffset - (nex
 }
 
 // --- Start ---
-document.getElementById('start-btn').addEventListener('click', () => {
+window.startGame = function() {
     if (isRiding) return;
     isRiding = true;
     
@@ -1696,7 +1804,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
         document.getElementById('advanced-hud').classList.remove('hidden');
     
         // Explicitly resume Web Audio context
-        if (audioCtx && audioCtx.state === 'suspended' && audioEnabled) {
+        if (audioCtx && audioCtx.state === 'suspended' && typeof audioEnabled !== 'undefined' && audioEnabled) {
             audioCtx.resume();
         }
         
@@ -1708,12 +1816,18 @@ document.getElementById('start-btn').addEventListener('click', () => {
         document.getElementById('score-val').innerText = score;
         
         // Reactivate all coins & rings
-        coinsData.forEach(c => { c.active = true; c.coin.visible = true; });
-        boostRingsData.forEach(r => { r.active = true; r.ring.visible = true; });
+        if(typeof coinsData !== 'undefined') coinsData.forEach(c => { c.active = true; c.coin.visible = true; });
+        if(typeof boostRingsData !== 'undefined') boostRingsData.forEach(r => { r.active = true; r.ring.visible = true; });
         
-        document.getElementById('start-btn').disabled = false;
+        const btn = document.getElementById('start-btn');
+        if(btn) btn.disabled = false;
+        
+        const menuBtn = document.getElementById('menu-btn');
+        if(menuBtn) menuBtn.style.display = 'block';
     }, 500);
-});
+};
+
+document.getElementById('start-btn').addEventListener('click', window.startGame);
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;

@@ -18,7 +18,7 @@
 <body>
     <div id="ui-container">
         <!-- Instructions Overlay -->
-        <div id="instructions-overlay" class="glass-panel" style="position: absolute; top: 10%; width: 80%; max-width: 600px; left: 50%; transform: translateX(-50%); z-index: 99999; backdrop-filter: blur(10px); background: rgba(0, 0, 0, 0.85); border: 2px solid #00ffff; border-radius: 12px; padding: 25px; font-family: 'Segoe UI', sans-serif; color: white; display:flex; flex-direction: column;">
+        <div id="instructions-overlay" class="glass-panel" style="position: absolute; top: 10%; width: 80%; max-width: 600px; left: 50%; transform: translateX(-50%); z-index: 99999; backdrop-filter: blur(10px); background: rgba(0, 0, 0, 0.85); border: 2px solid #00ffff; border-radius: 12px; padding: 25px; font-family: 'Segoe UI', sans-serif; color: white; display: none; flex-direction: column;">
             <h2 style="color: #00ffff; text-shadow: 0 0 10px #00ffff; text-align: center; margin-top: 0;">🛠️ HOW TO PLAY & COLLECT</h2>
             <ul style="font-size: 1.1rem; line-height: 1.8; list-style-type: '⚡ ';">
                 <li><strong>PC controls:</strong> Hit <span style="color: #ffdd00; font-weight: bold;">[A]</span> or <span style="color: #ffdd00; font-weight: bold;">[D]</span> keys to switch LEFT/RIGHT lanes and catch the floating coins!</li>
@@ -29,8 +29,18 @@
             <button id="close-inst-btn" style="padding: 12px 24px; background: rgba(0,255,255,0.2); border: 1px solid cyan; color: cyan; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 15px; transition: 0.2s;">GOT IT!</button>
         </div>
 
-        <div id="debug-panel" class="hidden" style="position: absolute; top: 40px; left: 10px; background: rgba(0,0,0,0.8); color: lime; font-family: monospace; font-size: 0.9rem; padding: 10px; z-index: 100000; pointer-events: none; border: 1px solid lime;"></div>
-        <button id="debug-btn" style="position: absolute; top: 10px; left: 10px; z-index: 100000; background: rgba(0,0,0,0.5); font-family: monospace; color: #aaa; border: 1px solid #555; cursor: pointer; padding: 4px 8px;">[D] DEBUG</button>
+        <div id="debug-panel" class="hidden" style="position: absolute; top: 50px; left: 10px; background: rgba(0,0,0,0.8); color: lime; font-family: monospace; font-size: 0.9rem; padding: 10px; z-index: 100000; pointer-events: none; border: 1px solid lime;"></div>
+        <div style="position: absolute; top: 10px; left: 10px; z-index: 100000; display: flex; gap: 8px;">
+            <button id="debug-btn" style="background: rgba(0,0,0,0.5); font-family: monospace; color: #aaa; border: 1px solid #555; cursor: pointer; padding: 4px 8px;">[D] DEBUG</button>
+            <button id="menu-btn" style="background: rgba(0,0,0,0.5); font-family: monospace; color: #fff; border: 1px solid #aaa; cursor: pointer; padding: 4px 8px; display: none;">⮌ MENU</button>
+        </div>
+
+        <!-- Version & Creator Watermark -->
+        <div id="version-info" style="position: absolute; top: 12px; right: 20px; z-index: 100000; text-align: right; font-family: 'Segoe UI', sans-serif; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
+            <div style="color: #00ffff; font-size: 0.9rem; font-weight: bold; letter-spacing: 1px; text-shadow: 0 0 8px rgba(0,255,255,0.6);">v1.0.0 Alpha</div>
+            <div style="color: #fff; font-size: 0.75rem; opacity: 0.85; margin-top: 4px; letter-spacing: 0.5px;">FLYCHAIR LAB | CREATOR: BEN</div>
+            <div style="color: #bbb; font-size: 0.7rem; margin-top: 2px; font-family: monospace;">2026.03.26</div>
+        </div>
 
         <!-- Start Screen -->
         <div id="start-screen" class="glass-panel">
@@ -81,8 +91,9 @@
                 </div>
             </div>
 
-            <button id="start-btn">ENGAGE RIDE</button>
+            <button id="start-btn" class="glow-button" style="margin-top: 15px;">ENGAGE RIDE</button>
             <p class="hint">Hint: [SPACE] or 2-Finger Touch to Boost! [A]/[D] or Tap Sides to Switch Lanes!</p>
+            <button id="help-btn" style="background: rgba(0,255,255,0.1); border: 1px solid cyan; color: cyan; font-weight: bold; cursor: pointer; padding: 6px 16px; border-radius: 4px; font-size: 0.9rem; margin: 10px auto 0; display: block; transition: 0.2s;">🛠️ HOW TO PLAY</button>
         </div>
 
         <!-- Advanced HUD -->
