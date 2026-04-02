@@ -133,9 +133,10 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         State.npcs = [];
 
         // Generate NPCs
-        const npcColors = [0x1111cc, 0x11cc11, 0xcccc11, 0xcc11cc];
+        // Vibrant neon colors
+        const npcColors = [0x00FFFF, 0xFF00FF, 0xFFFF00, 0x00FF00, 0xFF6600];
         for (let i = 0; i < 3; i++) {
-            const { cartGroup, wheelsData } = createCartModel(npcColors[i % npcColors.length]);
+            const { cartGroup, wheelsData } = createCartModel(npcColors[i % npcColors.length], true);
             // Convert cartGroup materials to transparent / hologram-like? User requested collisions + random lane. 
             // We'll leave them fully opaque for realism since they collide!
             scene.add(cartGroup);
@@ -144,7 +145,7 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
                 cartGroup,
                 wheelsData,
                 rideProgress: Math.random() * 0.15 + 0.05, // start slightly ahead
-                baseSpeed: State.baseSpeed * (0.8 + Math.random() * 0.4), // randomize base speed variations
+                baseSpeed: State.baseSpeed * (0.65 + Math.random() * 0.25), // Slower! 65% ~ 90% of base speed
                 currentSpeed: State.baseSpeed,
                 lane: Math.random() > 0.5 ? 1 : -1,
                 laneOffset: 0,
@@ -799,7 +800,7 @@ function updateMinimapBounds() {
     }
 }
 
-export function createCartModel(bodyColorHex) {
+export function createCartModel(bodyColorHex, isNPC = false) {
     const cartGroup = new THREE.Group();
     const bodyGeo = new THREE.BoxGeometry(1.4, 0.35, 2.0); 
     const bodyPos = bodyGeo.attributes.position.array;
@@ -813,7 +814,12 @@ export function createCartModel(bodyColorHex) {
     }
     bodyGeo.computeVertexNormals();
 
-    const bodyMat = new THREE.MeshPhysicalMaterial({ color: bodyColorHex, roughness: 0.15, metalness: 0.6, clearcoat: 1.0, clearcoatRoughness: 0.1 });
+    const bodyMat = new THREE.MeshPhysicalMaterial({ 
+        color: bodyColorHex, 
+        emissive: isNPC ? bodyColorHex : 0x000000,
+        emissiveIntensity: isNPC ? 0.4 : 0, 
+        roughness: 0.15, metalness: 0.6, clearcoat: 1.0, clearcoatRoughness: 0.1 
+    });
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.position.y = 0.35;
     cartGroup.add(bodyMesh);
