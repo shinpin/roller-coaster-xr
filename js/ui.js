@@ -269,12 +269,19 @@ export function updateMinimap(progress) {
     const px = (canvas.width / 2) + (bp.x - State.minimapCx) * State.minimapScale;
     const py = (canvas.height / 2) + (bp.z - State.minimapCz) * State.minimapScale;
     
+    // Draw Player (Distinctive Ring/Pulse look)
     ctx.beginPath();
-    ctx.arc(px, py, 4, 0, Math.PI*2);
-    ctx.fillStyle = '#ff00ea';
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = '#ff00ea';
+    ctx.arc(px, py, 6, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff'; // White center
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#00ffff'; // Neon cyan glow
     ctx.fill();
+    
+    ctx.beginPath();
+    ctx.arc(px, py, 8 + Math.sin(Date.now() * 0.005) * 2, 0, Math.PI*2);
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
     // Draw NPCs
     if (State.npcs) {
