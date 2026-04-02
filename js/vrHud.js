@@ -59,7 +59,7 @@ export function hideVrHud() {
 
 /**
  * Call every frame while XR is presenting.
- * @param {{ speed: number, score: number, gForce: number, isBoosting: boolean }} data
+ * @param {{ speed: number, score: number, gForce: number, isBoosting: boolean, rank: number }} data
  */
 export function updateVrHud(data) {
     if (!hudCtx || !hudTexture || !vrGroup?.visible) return;
@@ -134,7 +134,7 @@ function _drawStartPanel(ctx) {
     ctx.fillText('FLYCHAIR LAB  |  v1.0  |  Quest 3 & Vive XR Elite', HUD_W / 2, 278);
 }
 
-function _drawRidePanel(ctx, { speed, score, gForce, isBoosting }) {
+function _drawRidePanel(ctx, { speed, score, gForce, isBoosting, rank }) {
     ctx.textAlign = 'left';
 
     // ── Row 1: Speed (left) & Score (right) ──
@@ -147,6 +147,18 @@ function _drawRidePanel(ctx, { speed, score, gForce, isBoosting }) {
     ctx.font = '18px monospace';
     ctx.fillStyle = 'rgba(0,180,220,0.7)';
     ctx.fillText('km/h', 36, 96);
+
+    // Rank (Center)
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 36px monospace';
+    _glow(ctx, '#00ffaa', 10);
+    ctx.fillStyle = '#00ffaa';
+    ctx.fillText(`P${rank || 1}`, HUD_W / 2, 72);
+    _glow(ctx, null, 0);
+
+    ctx.font = '18px monospace';
+    ctx.fillStyle = 'rgba(0,255,170,0.7)';
+    ctx.fillText('POS', HUD_W / 2, 96);
 
     ctx.textAlign = 'right';
     ctx.font = 'bold 34px monospace';

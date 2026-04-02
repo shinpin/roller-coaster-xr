@@ -16,9 +16,9 @@ export function initUI(callbacks) {
         leftIdr: document.getElementById('turn-indicator-left'),
         rightIdr: document.getElementById('turn-indicator-right'),
         warningAlert: document.getElementById('warning-alert'),
-        scoreVal: document.getElementById('score-val'),
         scoreUI: document.getElementById('score-ui'),
         envVal: document.getElementById('env-val'),
+        rankVal: document.getElementById('rank-val'),
         debugPanel: document.getElementById('debug-panel')
     };
 
@@ -87,6 +87,7 @@ let lastAltTxt = '';
 let lastHeadTxt = '';
 let lastGForceTxt = '';
 let lastPitchTxt = '';
+let lastRank = 1;
 
 export function updateHUD(data) {
     // Use string caching to prevent redundant DOM updates
@@ -95,6 +96,11 @@ export function updateHUD(data) {
         UI.speedVal.innerHTML = speedTxt;
         UI.accelBar.style.width = `${data.accelRatio}%`;
         lastSpeedTxt = speedTxt;
+    }
+
+    if (data.rank && data.rank !== lastRank) {
+        if (UI.rankVal) UI.rankVal.innerText = data.rank;
+        lastRank = data.rank;
     }
 
     const altTxt = `${data.displayAlt}<span> m</span>`;

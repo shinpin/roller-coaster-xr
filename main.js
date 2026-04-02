@@ -421,7 +421,8 @@ function updateHUDAndTelemetry(tangent, localLook, nextCoin) {
         pitchDeg: Math.asin(Math.max(-1, Math.min(1, tangent.y))) * 180 / Math.PI,
         isTurnLeft: localLook.x < -0.15,
         isTurnRight: localLook.x > 0.15,
-        isWarning: isWarning
+        isWarning: isWarning,
+        rank: State.currentRank || 1
     });
 
     updateMinimap(State.rideProgress % 1.0);
@@ -495,6 +496,15 @@ function animate() {
         updateCameraRig(delta, localLook, tangent, slopeImpact);
         updateNPCs(delta, time);
         updateLightingAndSpeedLines(time, delta);
+        
+        let currentRank = 1;
+        if (State.npcs) {
+            State.npcs.forEach(npc => {
+                if (npc.rideProgress % 1.0 > State.rideProgress % 1.0) currentRank++;
+            });
+        }
+        State.currentRank = currentRank;
+
         updateHUDAndTelemetry(tangent, localLook, nextCoin);
         
         checkRideEnd();
@@ -515,6 +525,7 @@ function animate() {
             score:     State.score,
             gForce:    _vrGForce,
             isBoosting: State.isBoosting,
+            rank:      State.currentRank || 1
         });
         renderer.render(scene, camera);
     } else {

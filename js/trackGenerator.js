@@ -136,7 +136,8 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         // Vibrant neon colors
         const npcColors = [0x00FFFF, 0xFF00FF, 0xFFFF00, 0x00FF00, 0xFF6600];
         for (let i = 0; i < 3; i++) {
-            const { cartGroup, wheelsData } = createCartModel(npcColors[i % npcColors.length], true);
+            const driverNum = "0" + (i + 2); // 02, 03, 04...
+            const { cartGroup, wheelsData } = createCartModel(npcColors[i % npcColors.length], true, driverNum);
             // Convert cartGroup materials to transparent / hologram-like? User requested collisions + random lane. 
             // We'll leave them fully opaque for realism since they collide!
             scene.add(cartGroup);
@@ -800,14 +801,14 @@ function updateMinimapBounds() {
     }
 }
 
-export function createCartModel(bodyColorHex, isNPC = false) {
+export function createCartModel(bodyColorHex, isNPC = false, driverNum = "01") {
     const cartGroup = new THREE.Group();
-    const bodyGeo = new THREE.BoxGeometry(1.4, 0.35, 2.0); 
+    const bodyGeo = new THREE.BoxGeometry(1.4, 0.42, 2.0); // Thickened by 20% (was 0.35)
     const bodyPos = bodyGeo.attributes.position.array;
     for(let i=0; i<bodyPos.length; i+=3) {
         if(bodyPos[i+2] < 0) { 
             bodyPos[i] *= 0.6; 
-            if(bodyPos[i+1] > 0) bodyPos[i+1] -= 0.25; 
+            if(bodyPos[i+1] > 0) bodyPos[i+1] -= 0.30; // Adjusted slope for taller height
         } else {
             bodyPos[i] *= 1.1; 
         }
@@ -872,10 +873,39 @@ export function createCartModel(bodyColorHex, isNPC = false) {
     ctxEnv.fillStyle = grad; ctxEnv.fillRect(0, 0, 256, 256);
     const fakeEnvTex = new THREE.CanvasTexture(envCanvas); fakeEnvTex.mapping = THREE.EquirectangularReflectionMapping;
 
-    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x111115, roughness: 0.05, metalness: 0.9, envMap: fakeEnvTex, envMapIntensity: 2.0, clearcoat: 1.0, clearcoatRoughness: 0.05 });
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x111115, roughness: 0.05, metalness: 0.9, envMap: fakeEnvTex, envMapIntensity: 2.0, clearcoat: 1.0, clearcoatRoughness: 0.05, transparent: true, opacity: 0.65 });
     const glassMesh = new THREE.Mesh(glassGeo, glassMat);
-    glassMesh.position.set(0, 0.52, -0.2);
+    glassMesh.position.set(0, 0.52 + 0.07, -0.2); // Shift glass up slightly to match thicker body
     cartGroup.add(glassMesh);
+
+    // Driver Model
+    const driverMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 });
+    const capMat = new THREE.MeshStandardMaterial({ color: bodyColorHex, roughness: 0.5 });
+    const headGeo = new THREE.SphereGeometry(0.18, 16, 16);
+    const headMesh = new THREE.Mesh(headGeo, capMat);
+    headMesh.position.set(0, 0.72 + 0.07, -0.3); // Sitting in the glass cabin
+    cartGroup.add(headMesh);
+    const bodyDriverGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.3, 16);
+    const bodyDriverMesh = new THREE.Mesh(bodyDriverGeo, driverMat);
+    bodyDriverMesh.position.set(0, 0.5 + 0.07, -0.3);
+    cartGroup.add(bodyDriverMesh);
+
+    // Number Tag Sprite
+    const canvasTag = document.createElement('canvas');
+    canvasTag.width = 128; canvasTag.height = 64;
+    const bCtx = canvasTag.getContext('2d');
+    bCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    bCtx.fillRect(0, 0, 128, 64);
+    bCtx.font = "Bold 36px Arial";
+    bCtx.fillStyle = isNPC ? '#ffaaaa' : '#aaffaa';
+    bCtx.textAlign = "center";
+    bCtx.fillText("No." + driverNum, 64, 45);
+    const tagTex = new THREE.CanvasTexture(canvasTag);
+    const spriteMat = new THREE.SpriteMaterial({ map: tagTex, depthTest: false, transparent: true });
+    const numberSprite = new THREE.Sprite(spriteMat);
+    numberSprite.position.set(0, 1.4, -0.2); 
+    numberSprite.scale.set(1.2, 0.6, 1);
+    cartGroup.add(numberSprite);
 
     return { cartGroup, wheelsData };
 }
