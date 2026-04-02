@@ -28,6 +28,7 @@ export const State = {
     weatherParticles: null,
     boostRingsData: [],
     coinsData: [],
+    npcs: [],
     coinParticlesData: [],
     wheelsData: [],
     

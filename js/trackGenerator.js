@@ -124,6 +124,34 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         // Track Generation
         generateTrack(scene);
 
+        // Clear existing NPCs
+        if (State.npcs) {
+            for (let npc of State.npcs) {
+                scene.remove(npc.cartGroup);
+            }
+        }
+        State.npcs = [];
+
+        // Generate NPCs
+        const npcColors = [0x1111cc, 0x11cc11, 0xcccc11, 0xcc11cc];
+        for (let i = 0; i < 3; i++) {
+            const { cartGroup, wheelsData } = createCartModel(npcColors[i % npcColors.length]);
+            // Convert cartGroup materials to transparent / hologram-like? User requested collisions + random lane. 
+            // We'll leave them fully opaque for realism since they collide!
+            scene.add(cartGroup);
+            
+            State.npcs.push({
+                cartGroup,
+                wheelsData,
+                rideProgress: Math.random() * 0.15 + 0.05, // start slightly ahead
+                baseSpeed: State.baseSpeed * (0.8 + Math.random() * 0.4), // randomize base speed variations
+                currentSpeed: State.baseSpeed,
+                lane: Math.random() > 0.5 ? 1 : -1,
+                laneOffset: 0,
+                nextLaneDecisionTime: 0
+            });
+        }
+
     } finally {
         Math.random = originalMathRandom;
     }
@@ -769,4 +797,75 @@ function updateMinimapBounds() {
             y: (minimapCanvas.height / 2) + (p.z - State.minimapCz) * State.minimapScale
         }));
     }
+}
+
+export function createCartModel(bodyColorHex) {
+    const cartGroup = new THREE.Group();
+    const bodyGeo = new THREE.BoxGeometry(1.4, 0.35, 2.0); 
+    const bodyPos = bodyGeo.attributes.position.array;
+    for(let i=0; i<bodyPos.length; i+=3) {
+        if(bodyPos[i+2] < 0) { 
+            bodyPos[i] *= 0.6; 
+            if(bodyPos[i+1] > 0) bodyPos[i+1] -= 0.25; 
+        } else {
+            bodyPos[i] *= 1.1; 
+        }
+    }
+    bodyGeo.computeVertexNormals();
+
+    const bodyMat = new THREE.MeshPhysicalMaterial({ color: bodyColorHex, roughness: 0.15, metalness: 0.6, clearcoat: 1.0, clearcoatRoughness: 0.1 });
+    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    bodyMesh.position.y = 0.35;
+    cartGroup.add(bodyMesh);
+
+    const wheelsData = [];
+    const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 16);
+    wheelGeo.rotateZ(Math.PI / 2);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 });
+    const treadGeo = new THREE.BoxGeometry(0.32, 0.05, 0.05);
+    const treadMat = new THREE.MeshBasicMaterial({ color: 0x888888 }); 
+    const wheelPositions = [ [-0.8, 0.3, -0.6], [0.8, 0.3, -0.6], [-0.8, 0.3, 0.9], [0.8, 0.3, 0.9] ];
+
+    wheelPositions.forEach(wp => {
+        const wGroup = new THREE.Group();
+        wGroup.position.set(wp[0], wp[1], wp[2]);
+        wGroup.add(new THREE.Mesh(wheelGeo, wheelMat));
+        for(let a=0; a<3; a++) {
+            const angle = (a / 3) * Math.PI * 2;
+            const tread = new THREE.Mesh(treadGeo, treadMat);
+            tread.position.set(0, Math.sin(angle)*0.28, Math.cos(angle)*0.28);
+            tread.rotation.x = -angle; 
+            wGroup.add(tread);
+        }
+        cartGroup.add(wGroup);
+        wheelsData.push(wGroup);
+    });
+
+    const glassGeo = new THREE.BoxGeometry(1, 1, 1);
+    const posAttribute = glassGeo.attributes.position;
+    const H = 0.45; const Wf = 0.25, Wb = 0.45, Wr = 0.25; 
+    const Fz = -0.5, Bz = 1.0, Fzr = -0.3, Bzr = 0.8;
+    for (let i = 0; i < posAttribute.count; i++) {
+        let x = posAttribute.getX(i); let y = posAttribute.getY(i) + 0.5; let z = posAttribute.getZ(i);
+        const zBase = z > 0 ? Bz : Fz; const zRoof = z > 0 ? Bzr : Fzr;
+        z = THREE.MathUtils.lerp(zBase, zRoof, y);
+        const wBase = z > 0 ? Wb : Wf; const wRoof = Wr;
+        const w = THREE.MathUtils.lerp(wBase, wRoof, y);
+        x = x > 0 ? w : -w;  y = y * H;
+        posAttribute.setXYZ(i, x, y, z);
+    }
+    glassGeo.computeVertexNormals();
+
+    const envCanvas = document.createElement('canvas'); envCanvas.width = envCanvas.height = 256;
+    const ctxEnv = envCanvas.getContext('2d'); const grad = ctxEnv.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.45, '#88aaff'); grad.addColorStop(0.5, '#445566'); grad.addColorStop(1, '#111122');
+    ctxEnv.fillStyle = grad; ctxEnv.fillRect(0, 0, 256, 256);
+    const fakeEnvTex = new THREE.CanvasTexture(envCanvas); fakeEnvTex.mapping = THREE.EquirectangularReflectionMapping;
+
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x111115, roughness: 0.05, metalness: 0.9, envMap: fakeEnvTex, envMapIntensity: 2.0, clearcoat: 1.0, clearcoatRoughness: 0.05 });
+    const glassMesh = new THREE.Mesh(glassGeo, glassMat);
+    glassMesh.position.set(0, 0.52, -0.2);
+    cartGroup.add(glassMesh);
+
+    return { cartGroup, wheelsData };
 }
