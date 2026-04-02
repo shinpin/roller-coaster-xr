@@ -163,12 +163,13 @@ function generateEnvironmentProps(scene) {
         if(State.currentWeather === 'rain') {
             const rCount = 2500;
             const rGeo = new THREE.CylinderGeometry(0.015, 0.015, 12, 3);
-            rGeo.rotateX(Math.PI / 2);
+            // Removed rotateX so rain points vertically down (Y-axis)
             const rMat = new THREE.MeshBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0.5 });
             State.weatherParticles = new THREE.InstancedMesh(rGeo, rMat, rCount);
             const tObj = new THREE.Object3D();
             for(let i=0; i<rCount; i++) {
-                tObj.position.set((Math.random()-0.5)*150, (Math.random()-0.5)*150, (Math.random()-0.5)*300);
+                // Spawn rain in a box above the player's head (Y: 0 to 150)
+                tObj.position.set((Math.random()-0.5)*150, Math.random()*150, (Math.random()-0.5)*150);
                 tObj.updateMatrix();
                 State.weatherParticles.setMatrixAt(i, tObj.matrix);
             }

@@ -143,7 +143,7 @@ const speedLineGroup = new THREE.InstancedMesh(speedLineGeo, new THREE.MeshBasic
 speedLineGroup.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 const tempObj = new THREE.Object3D();
 for (let i = 0; i < speedLineCount; i++) {
-    const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 20 + 3; const zOff = Math.random() * 200 - 100;
+    const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 20 + 3; const zOff = -(Math.random() * 250 + 50); // spawn far in front (-300 to -50)
     tempObj.position.set(Math.cos(angle)*radius, Math.sin(angle)*radius, zOff);
     tempObj.scale.set(1, 1, Math.random() * 1.5 + 0.5); tempObj.updateMatrix();
     speedLineGroup.setMatrixAt(i, tempObj.matrix);
@@ -255,7 +255,7 @@ function updateParticles(delta, time) {
 
     if(State.weatherParticles) {
         if(State.currentWeather === 'rain') {
-            State.weatherParticles.position.z = (time * (State.currentSpeed * 10000 + 50)) % 150; 
+            State.weatherParticles.position.set(camera.position.x, camera.position.y - ((time * 150) % 150), camera.position.z); 
         } else {
             State.weatherParticles.position.copy(camera.position); 
             const pos = State.weatherParticles.geometry.attributes.position.array;
@@ -347,7 +347,7 @@ function updateLightingAndSpeedLines(time, delta) {
         let speedLineOpacity = 0;
         if (State.isRiding && (State.isBoosting || State.currentSpeed > State.baseSpeed * 2.5)) {
             speedLineOpacity = 0.8;
-            speedLineGroup.position.z = (time * 800) % 150; 
+            speedLineGroup.position.z = (time * 800) % 300; // loop through the local Z-space simulating rushing towards us
         }
         speedLineGroup.material.opacity = THREE.MathUtils.lerp(speedLineGroup.material.opacity, speedLineOpacity, delta * 8);
     }
