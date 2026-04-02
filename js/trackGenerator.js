@@ -381,9 +381,10 @@ function generateTrack(scene) {
     // Height: 3 visible "layers" (storeys).
     // A slow 1.5-cycle sine spans 3 distinct height bands.
     // Local bumps add texture but stay well within each layer.
-    const layerSpacing  = 20; // world-units between storeys
-    const localWaveAmp  =  6; // bumps within a layer  (well below layerSpacing)
-    const flatFraction  = 0.10; // first 10 % of track is flat / gentle ramp
+    const layerSpacing  = 20;   // world-units between storeys
+    const localWaveAmp  =  6;   // bumps within a layer  (well below layerSpacing)
+    const flatFraction  = 0.15; // 0–15 %: flat launch section
+    const rampZoneEnd   = 0.30; // 15–30 %: dramatic high-variation entry zone
 
     for (let i = 0; i < TRACK_POINTS; i++) {
         const t     = i / TRACK_POINTS;
@@ -398,16 +399,30 @@ function generateTrack(scene) {
         // ── Height ──────────────────────────────────────────────────────────
         let height;
         if (t < flatFraction) {
-            // Flat / gentle launch section — barely any elevation change.
-            height = (t / flatFraction) * localWaveAmp * 0.25;
+            // 0–15 %: truly flat launch — riders build anticipation.
+            height = 0;
+
         } else {
             const ta = (t - flatFraction) / (1 - flatFraction); // 0 → 1 after flat
             // 1.5-cycle sine → three distinct height bands (the "3 storeys").
             const layerWave = Math.sin(ta * Math.PI * 2 * 1.5) * layerSpacing;
-            // Faster local oscillation for bumps & dips — scaled so it stays in-band.
+            // Faster local oscillation for bumps & dips — stays within each band.
             const localWave = Math.sin(ta * Math.PI * 2 * numLoops * 0.55) * localWaveAmp
                             + Math.cos(ta * Math.PI * 2 * numLoops * 0.28) * localWaveAmp * 0.35;
-            height = layerWave + localWave;
+
+            if (t < rampZoneEnd) {
+                // 15–30 %: dramatic entry — amplitude grows fast from zero,
+                // plus a rapid 3-cycle oscillation (shake) that bookends to zero
+                // so there is no discontinuity at either 15 % or 30 %.
+                const zoneT  = (t - flatFraction) / (rampZoneEnd - flatFraction); // 0 → 1
+                const growIn = zoneT * zoneT;  // quadratic ramp-in 0→1
+                // sin(zoneT*3π)*zoneT: zero at 0, three wiggles, zero at 1
+                const shake  = Math.sin(zoneT * Math.PI * 3) * layerSpacing * 0.7 * zoneT;
+                height = (layerWave + localWave) * growIn + shake;
+            } else {
+                // 30–100 %: normal 3-storey wave.
+                height = layerWave + localWave;
+            }
         }
 
         const baseY = State.currentTheme.type === 'sky' ? height + 60 : height;
@@ -417,6 +432,7 @@ function generateTrack(scene) {
             Math.sin(angle) * radius
         ));
     }
+
 
     // ── Close the loop (smoothly blend last 20 % back to pt[0]) ─────────────
     // The spiral ends at a larger radius than it started; smoothstep pulls
