@@ -369,20 +369,20 @@ function generateTrack(scene) {
     State.curve = new THREE.CatmullRomCurve3();
     const pts = [];
 
-    // ── Expanding polar-spiral track generation ───────────────────────────
+    // ── Expanding polar-spiral track generation ───────────────
     // numLoops full rotations around the centre.
-    // Key insight: radius grows by expandPerLp each full loop, so consecutive
-    // passes of the spiral are always spatially separated — no XZ self-crossing.
     const numLoops    = Math.floor(Math.random() * 4) + 3; // 3 – 6 loops
     const baseRadius  = 30;
     const expandPerLp = 15;  // world-units added per full rotation (> track half-width)
     const localWiggle =  3;  // small per-point deviation  (must be < expandPerLp/2)
 
     // Height: 3 visible "layers" (storeys).
-    // A slow 1.5-cycle sine spans 3 distinct height bands.
-    // Local bumps add texture but stay well within each layer.
-    const layerSpacing  = 20;   // world-units between storeys
-    const localWaveAmp  =  6;   // bumps within a layer  (well below layerSpacing)
+    // User requested +30-50% height and much higher variation per generation.
+    // layerSpacing goes from old 20 to 30~55.
+    const layerSpacing  = 30 + (Math.random() * 25); 
+    const localWaveAmp  = 10 + (Math.random() * 12); 
+    const layerCycles   = 1.0 + Math.random() * 1.0;   // 1.0 to 2.0 cycles
+    
     const flatFraction  = 0.15; // 0–15 %: flat launch section
     const rampZoneEnd   = 0.30; // 15–30 %: dramatic high-variation entry zone
 
@@ -391,7 +391,6 @@ function generateTrack(scene) {
         const angle = t * Math.PI * 2 * numLoops;
 
         // Radius grows steadily → each loop pass is expandPerLp further out.
-        // A tiny wiggle (< localWiggle*2 < expandPerLp) adds visual interest.
         const radius = baseRadius
                      + t * numLoops * expandPerLp
                      + Math.sin(angle * 2) * localWiggle;
@@ -399,28 +398,28 @@ function generateTrack(scene) {
         // ── Height ──────────────────────────────────────────────────────────
         let height;
         if (t < flatFraction) {
-            // 0–15 %: truly flat launch — riders build anticipation.
+            // 0–15 %: truly flat launch
             height = 0;
 
         } else {
             const ta = (t - flatFraction) / (1 - flatFraction); // 0 → 1 after flat
-            // 1.5-cycle sine → three distinct height bands (the "3 storeys").
-            const layerWave = Math.sin(ta * Math.PI * 2 * 1.5) * layerSpacing;
-            // Faster local oscillation for bumps & dips — stays within each band.
+            
+            // Randomize the main storey hills 
+            const layerWave = Math.sin(ta * Math.PI * 2 * layerCycles) * layerSpacing;
+            
+            // Fast local oscillation for bumps & dips 
             const localWave = Math.sin(ta * Math.PI * 2 * numLoops * 0.55) * localWaveAmp
                             + Math.cos(ta * Math.PI * 2 * numLoops * 0.28) * localWaveAmp * 0.35;
 
             if (t < rampZoneEnd) {
-                // 15–30 %: dramatic entry — amplitude grows fast from zero,
-                // plus a rapid 3-cycle oscillation (shake) that bookends to zero
-                // so there is no discontinuity at either 15 % or 30 %.
+                // 15–30 %: dramatic entry — amplitude grows fast from zero.
                 const zoneT  = (t - flatFraction) / (rampZoneEnd - flatFraction); // 0 → 1
                 const growIn = zoneT * zoneT;  // quadratic ramp-in 0→1
-                // sin(zoneT*3π)*zoneT: zero at 0, three wiggles, zero at 1
+                // Dynamic shake that scales with our new larger layerSpacing
                 const shake  = Math.sin(zoneT * Math.PI * 3) * layerSpacing * 0.7 * zoneT;
                 height = (layerWave + localWave) * growIn + shake;
             } else {
-                // 30–100 %: normal 3-storey wave.
+                // 30–100 %: normal wave.
                 height = layerWave + localWave;
             }
         }
