@@ -275,6 +275,24 @@ export function updateMinimap(progress) {
     ctx.shadowBlur = 8;
     ctx.shadowColor = '#ff00ea';
     ctx.fill();
+
+    // Draw NPCs
+    if (State.npcs) {
+        State.npcs.forEach(npc => {
+            const npcP = State.curve.getPointAt(npc.rideProgress % 1.0);
+            const npx = (canvas.width / 2) + (npcP.x - State.minimapCx) * State.minimapScale;
+            const npy = (canvas.height / 2) + (npcP.z - State.minimapCz) * State.minimapScale;
+            
+            ctx.beginPath();
+            ctx.arc(npx, npy, 3, 0, Math.PI*2);
+            // Use their vibrant body color for the minimap dot
+            ctx.fillStyle = npc.cartGroup.children[0].material.color.getStyle();
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.fill();
+        });
+    }
+
     ctx.shadowBlur = 0;
 }
 

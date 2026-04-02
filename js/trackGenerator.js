@@ -824,6 +824,10 @@ export function createCartModel(bodyColorHex, isNPC = false) {
     bodyMesh.position.y = 0.35;
     cartGroup.add(bodyMesh);
 
+    if (isNPC) {
+        cartGroup.scale.setScalar(2.0);
+    }
+
     const wheelsData = [];
     const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 16);
     wheelGeo.rotateZ(Math.PI / 2);

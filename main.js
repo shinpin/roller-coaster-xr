@@ -315,7 +315,7 @@ function updateNPCs(delta, time) {
         // 3. Collision with Player
         const pDist = Math.abs((State.rideProgress % 1.0) - mapP);
         const shortDist = Math.min(pDist, 1.0 - pDist);
-        const distanceThreshold = 0.0008; // Roughly one cart length
+        const distanceThreshold = 0.0016; // Roughly two cart lengths (scaled up)
         if (shortDist < distanceThreshold) {
             const laneDiff = Math.abs(State.currentLaneOffset - (npc.lane * 2.2));
             if (laneDiff < 1.0) {
