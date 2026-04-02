@@ -80,7 +80,8 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         
         scene.fog = new THREE.FogExp2(baseBgColor.getHex(), State.currentTheme.fogExp * State.currentTime.fogMod);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, State.currentTime.ambient * 0.8);
+        // Dye the environment by using dirCol for ambient light (Sunset orange / Night blue)
+        const ambientLight = new THREE.AmbientLight(State.currentTime.dirCol, State.currentTime.ambient * 0.8);
         scene.add(ambientLight);
         
         currentHemiLight = new THREE.HemisphereLight(State.currentTime.dirCol, State.currentTheme.ground, State.currentTime.ambient * 1.2);
@@ -179,6 +180,7 @@ function generateEnvironmentProps(scene) {
             });
             State.weatherParticles = new THREE.Points(pGeo, pMat);
         }
+        scene.add(State.weatherParticles);
     } else {
         State.weatherParticles = null;
     }
