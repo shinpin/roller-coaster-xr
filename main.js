@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { initVrHud, showVrHud, hideVrHud, updateVrHud } from './js/vrHud.js';
 
 import { TRACK_SEGMENTS } from './js/config.js';
 import { State } from './js/state.js';
@@ -30,22 +31,30 @@ renderer.toneMapping = THREE.ReinhardToneMapping;
 
 // --- Enable VR / WebXR ---
 renderer.xr.enabled = true;
-renderer.xr.setReferenceSpaceType('local'); 
+// 'local-floor' gives correct standing/seated height on Quest 3 & Vive XR Elite
+renderer.xr.setReferenceSpaceType('local-floor');
 
 const xrRig = new THREE.Group();
 playerRig.add(xrRig);
 
 renderer.xr.addEventListener('sessionstart', () => {
     xrRig.add(camera);
-    playerRig.add(cartGroup); 
-    xrRig.position.set(0, 0, 0);
-    window.vrHeightOffset = 0;
-    camera.position.set(0,0,0);
-    camera.rotation.set(0,0,0);
+    playerRig.add(cartGroup);
+    // local-floor: origin is at floor. Offset down by standing eye-height so
+    // the player feels seated in the cart (~1.6 m offset).
+    xrRig.position.set(0, -1.6, 0);
+    camera.position.set(0, 0, 0);
+    camera.rotation.set(0, 0, 0);
+    showVrHud();
+    // Try to start BGM (requires user gesture — XR button click qualifies)
+    const bgm = document.getElementById('bg-music');
+    if (bgm) bgm.play().catch(() => {});
 });
 renderer.xr.addEventListener('sessionend', () => {
     scene.add(camera);
-    camera.add(cartGroup); 
+    camera.add(cartGroup);
+    hideVrHud();
+    xrRig.position.set(0, 0, 0);
 });
 
 container.appendChild(renderer.domElement);
@@ -228,9 +237,11 @@ setupXRInput(renderer, { onStart: window.startGame });
 
 // Initial Build
 buildScene(scene, camera, 'underwater', 'day', 'clear');
+initVrHud(camera);
 
 // --- Global Animation Logic & Physics ---
 const clock = new THREE.Clock();
+let _vrGForce = 1.0; // shared across frames so VR HUD can display it
 
 // Pool for animation to save memory
 const _velVec = new THREE.Vector3();
@@ -395,8 +406,7 @@ function animate() {
             _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
             playerRig.up.copy(_normalVec);
             playerRig.lookAt(_lookPosVec);
-            if (camera.position.y > 0.8 && window.vrHeightOffset === 0) window.vrHeightOffset = -1.5; 
-            xrRig.position.y = THREE.MathUtils.lerp(xrRig.position.y, window.vrHeightOffset, delta * 2);
+            // xrRig.position.y is fixed at -1.6 on sessionstart (local-floor)
         } else {
             camera.position.copy(_camPosVec);
             _lookPosVec.addScaledVector(_normalVec, 1.2);
@@ -414,6 +424,7 @@ function animate() {
         const localLook = camera.worldToLocal(_lookPosVec.clone());
         const gForceRaw = 1.0 + (slopeImpact * 2.0) + ((State.targetSpeed - State.currentSpeed) * 500);
         const gForce = Math.max(0, gForceRaw);
+        _vrGForce = gForce; // expose to VR HUD
         const isWarning = (gForce > 2.5 || gForce < 0.2);
 
         updateHUD({
@@ -466,6 +477,13 @@ HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(State.currentLaneOffset 
     }
     
     if (renderer.xr.isPresenting) {
+        // Update the in-world VR HUD every frame
+        updateVrHud({
+            speed:     Math.floor(State.currentSpeed * 100000),
+            score:     State.score,
+            gForce:    _vrGForce,
+            isBoosting: State.isBoosting,
+        });
         renderer.render(scene, camera);
     } else {
         composer.render();
