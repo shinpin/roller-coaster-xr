@@ -328,7 +328,9 @@ function processRideEvents(mapP, lastP, delta) {
 }
 
 function updateLightingAndSpeedLines(time, delta) {
-    if (currentDirLight && scene.background) {
+    if (State.isRiding && currentDirLight && scene.background) {
+        // ONLY override lighting when riding (dynamically progress Day -> Sunset -> Night)
+        // Otherwise, leave the environment as set by the initial dropdown configuration!
         const dayNight = Math.PI * (State.rideProgress / 2.0); 
         const sunH = Math.sin(dayNight);
         currentDirLight.position.set(Math.cos(dayNight) * 300, sunH * 200 - 20, 100);

@@ -377,10 +377,10 @@ function generateTrack(scene) {
     const localWiggle =  3;  // small per-point deviation  (must be < expandPerLp/2)
 
     // Height: 3 visible "layers" (storeys).
-    // User requested +30-50% height and much higher variation per generation.
-    // layerSpacing goes from old 20 to 30~55.
-    const layerSpacing  = 30 + (Math.random() * 25); 
-    const localWaveAmp  = 10 + (Math.random() * 12); 
+    // Toned down randomly generated variation per user request.
+    // layerSpacing goes from old 20 to 20~35.
+    const layerSpacing  = 20 + (Math.random() * 15); 
+    const localWaveAmp  = 6 + (Math.random() * 6); 
     const layerCycles   = 1.0 + Math.random() * 1.0;   // 1.0 to 2.0 cycles
     
     const flatFraction  = 0.15; // 0–15 %: flat launch section
