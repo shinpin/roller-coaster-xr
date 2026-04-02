@@ -369,60 +369,75 @@ function generateTrack(scene) {
     State.curve = new THREE.CatmullRomCurve3();
     const pts = [];
 
-    // ── Turtle-step track generation ──────────────────────────────────────
-    // Instead of a polar spiral (which wraps and self-intersects), we walk
-    // forward step-by-step with a smoothly-drifting heading angle.
-    // This guarantees the path never doubles back sharply.
-    const stepSize   = 3.2;          // distance per control point (world units)
-    const heightAmp  = Math.random() * 20 + 18;   // vertical wave amplitude
-    const heightFreq = Math.random() * 0.04 + 0.02;
-    const turnRate   = Math.random() * 0.022 + 0.012; // max heading change per step (rad)
+    // ── Expanding polar-spiral track generation ───────────────────────────
+    // numLoops full rotations around the centre.
+    // Key insight: radius grows by expandPerLp each full loop, so consecutive
+    // passes of the spiral are always spatially separated — no XZ self-crossing.
+    const numLoops    = Math.floor(Math.random() * 4) + 3; // 3 – 6 loops
+    const baseRadius  = 30;
+    const expandPerLp = 15;  // world-units added per full rotation (> track half-width)
+    const localWiggle =  3;  // small per-point deviation  (must be < expandPerLp/2)
 
-    let headingAngle = 0;
-    let headingVel   = 0;            // angular "momentum" for smooth turning
-    let pos          = new THREE.Vector3(0, 0, 0);
+    // Height: 3 visible "layers" (storeys).
+    // A slow 1.5-cycle sine spans 3 distinct height bands.
+    // Local bumps add texture but stay well within each layer.
+    const layerSpacing  = 20; // world-units between storeys
+    const localWaveAmp  =  6; // bumps within a layer  (well below layerSpacing)
+    const flatFraction  = 0.10; // first 10 % of track is flat / gentle ramp
 
     for (let i = 0; i < TRACK_POINTS; i++) {
-        const t = i / TRACK_POINTS;
+        const t     = i / TRACK_POINTS;
+        const angle = t * Math.PI * 2 * numLoops;
 
-        // Smoothly drift the heading – oscillate so the track curves back
-        // without crossing itself (low frequency = wide, gentle arcs).
-        const targetHeadingVel = Math.sin(t * Math.PI * 2 * 2.5 + 1.3) * turnRate
-                                + Math.sin(t * Math.PI * 2 * 1.1) * turnRate * 0.5;
-        headingVel = THREE.MathUtils.lerp(headingVel, targetHeadingVel, 0.18);
-        headingAngle += headingVel;
+        // Radius grows steadily → each loop pass is expandPerLp further out.
+        // A tiny wiggle (< localWiggle*2 < expandPerLp) adds visual interest.
+        const radius = baseRadius
+                     + t * numLoops * expandPerLp
+                     + Math.sin(angle * 2) * localWiggle;
 
-        pos = pos.clone().add(
-            new THREE.Vector3(Math.sin(headingAngle), 0, Math.cos(headingAngle))
-                .multiplyScalar(stepSize)
-        );
+        // ── Height ──────────────────────────────────────────────────────────
+        let height;
+        if (t < flatFraction) {
+            // Flat / gentle launch section — barely any elevation change.
+            height = (t / flatFraction) * localWaveAmp * 0.25;
+        } else {
+            const ta = (t - flatFraction) / (1 - flatFraction); // 0 → 1 after flat
+            // 1.5-cycle sine → three distinct height bands (the "3 storeys").
+            const layerWave = Math.sin(ta * Math.PI * 2 * 1.5) * layerSpacing;
+            // Faster local oscillation for bumps & dips — scaled so it stays in-band.
+            const localWave = Math.sin(ta * Math.PI * 2 * numLoops * 0.55) * localWaveAmp
+                            + Math.cos(ta * Math.PI * 2 * numLoops * 0.28) * localWaveAmp * 0.35;
+            height = layerWave + localWave;
+        }
 
-        // Height: multi-frequency sine to create hills & dips
-        const h = Math.sin(t * Math.PI * 2 * 4 * heightFreq * 100) * heightAmp
-                + Math.cos(t * Math.PI * 2 * 2.3 * heightFreq * 100) * heightAmp * 0.4;
-        const baseY = State.currentTheme.type === 'sky' ? h + 60 : h;
-        pts.push(new THREE.Vector3(pos.x, baseY, pos.z));
+        const baseY = State.currentTheme.type === 'sky' ? height + 60 : height;
+        pts.push(new THREE.Vector3(
+            Math.cos(angle) * radius,
+            baseY,
+            Math.sin(angle) * radius
+        ));
     }
 
-    // Close the loop smoothly by blending the last ~20% of points back
-    // toward the start position so CatmullRom closes without a sharp kink.
+    // ── Close the loop (smoothly blend last 20 % back to pt[0]) ─────────────
+    // The spiral ends at a larger radius than it started; smoothstep pulls
+    // the tail back so CatmullRom closes without a visible seam.
     const blendStart = Math.floor(TRACK_POINTS * 0.80);
     for (let i = blendStart; i < TRACK_POINTS; i++) {
-        const alpha = (i - blendStart) / (TRACK_POINTS - blendStart);
+        const alpha  = (i - blendStart) / (TRACK_POINTS - blendStart);
         const smooth = alpha * alpha * (3 - 2 * alpha); // smoothstep
         pts[i].x = THREE.MathUtils.lerp(pts[i].x, pts[0].x, smooth);
         pts[i].z = THREE.MathUtils.lerp(pts[i].z, pts[0].z, smooth);
         pts[i].y = THREE.MathUtils.lerp(pts[i].y, pts[0].y, smooth);
     }
 
-    // ── Self-intersection correction pass ─────────────────────────────────
-    // Detect points that are too close in 3-D and push them apart both
-    // vertically AND horizontally so the track has clear visual separation.
-    const hClearance   = 9.0;   // minimum separation in XZ plane (world units)
-    const vClearance   = 6.0;   // minimum separation in Y
-    const hClearSq     = hClearance * hClearance;
-    const SKIP_NEAR    = 18;    // ignore adjacent points on the same arc
-    let   skipUntil    = 0;
+    // ── Safety self-intersection pass ────────────────────────────────────────
+    // The spiral is naturally non-self-intersecting in XZ; this corrects
+    // any residual proximity introduced by the blend-back zone or local wiggle.
+    const hClearance = 8.0;
+    const vClearance = 5.0;
+    const hClearSq   = hClearance * hClearance;
+    const SKIP_NEAR  = 18;
+    let   skipUntil  = 0;
 
     for (let i = SKIP_NEAR; i < TRACK_POINTS; i++) {
         if (i < skipUntil) continue;
@@ -430,24 +445,19 @@ function generateTrack(scene) {
             const dx = pts[i].x - pts[j].x;
             const dz = pts[i].z - pts[j].z;
             const hDistSq = dx * dx + dz * dz;
-
             if (hDistSq < hClearSq) {
                 const dy = pts[i].y - pts[j].y;
                 if (Math.abs(dy) < vClearance) {
-                    // Push the neighbourhood of pts[i] UP (vertical separation)
                     const pushUp  = (vClearance - Math.abs(dy)) * (dy >= 0 ? 1 : -1);
-                    // Also push pts[i] sideways away from pts[j] (horizontal sep)
                     const hDist   = Math.sqrt(hDistSq) + 0.001;
                     const pushOut = (hClearance - hDist) * 0.5;
-                    const nx = dx / hDist;
-                    const nz = dz / hDist;
-
+                    const nx = dx / hDist, nz = dz / hDist;
                     for (let k = -12; k <= 12; k++) {
                         const idx     = (i + k + TRACK_POINTS) % TRACK_POINTS;
                         const falloff = 1.0 - Math.abs(k) / 12;
-                        pts[idx].y   += pushUp  * falloff * 1.2;
-                        pts[idx].x   += nx * pushOut * falloff;
-                        pts[idx].z   += nz * pushOut * falloff;
+                        pts[idx].y += pushUp  * falloff * 1.2;
+                        pts[idx].x += nx * pushOut * falloff;
+                        pts[idx].z += nz * pushOut * falloff;
                     }
                     skipUntil = i + 30;
                     break;
@@ -456,7 +466,7 @@ function generateTrack(scene) {
         }
     }
 
-    
+
     State.curve.points = pts;
     State.curve.closed = true;
     State.curve.updateArcLengths();
