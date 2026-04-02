@@ -368,47 +368,94 @@ function generateEnvironmentProps(scene) {
 function generateTrack(scene) {
     State.curve = new THREE.CatmullRomCurve3();
     const pts = [];
-    const currentPt = new THREE.Vector3(0, 0, 0);
-    const loopSeed = Math.random() * 3 + 3;
-    const heightSeed = Math.random() * 30 + 20;
+
+    // ── Turtle-step track generation ──────────────────────────────────────
+    // Instead of a polar spiral (which wraps and self-intersects), we walk
+    // forward step-by-step with a smoothly-drifting heading angle.
+    // This guarantees the path never doubles back sharply.
+    const stepSize   = 3.2;          // distance per control point (world units)
+    const heightAmp  = Math.random() * 20 + 18;   // vertical wave amplitude
+    const heightFreq = Math.random() * 0.04 + 0.02;
+    const turnRate   = Math.random() * 0.022 + 0.012; // max heading change per step (rad)
+
+    let headingAngle = 0;
+    let headingVel   = 0;            // angular "momentum" for smooth turning
+    let pos          = new THREE.Vector3(0, 0, 0);
 
     for (let i = 0; i < TRACK_POINTS; i++) {
         const t = i / TRACK_POINTS;
-        const angle = t * Math.PI * 2 * loopSeed; 
-        
-        let radius = 40 + Math.sin(t * Math.PI * 12) * 20;
-        if (i > TRACK_POINTS * 0.4 && i < TRACK_POINTS * 0.6) radius -= 15; 
-        
-        const height = Math.sin(t * Math.PI * 8) * heightSeed + Math.cos(t * Math.PI * 3) * 15;
-        const offsetHeight = State.currentTheme.type === 'sky' ? height + 60 : height; 
-        currentPt.set(Math.cos(angle) * radius, offsetHeight, Math.sin(angle) * radius);
-        pts.push(currentPt.clone());
+
+        // Smoothly drift the heading – oscillate so the track curves back
+        // without crossing itself (low frequency = wide, gentle arcs).
+        const targetHeadingVel = Math.sin(t * Math.PI * 2 * 2.5 + 1.3) * turnRate
+                                + Math.sin(t * Math.PI * 2 * 1.1) * turnRate * 0.5;
+        headingVel = THREE.MathUtils.lerp(headingVel, targetHeadingVel, 0.18);
+        headingAngle += headingVel;
+
+        pos = pos.clone().add(
+            new THREE.Vector3(Math.sin(headingAngle), 0, Math.cos(headingAngle))
+                .multiplyScalar(stepSize)
+        );
+
+        // Height: multi-frequency sine to create hills & dips
+        const h = Math.sin(t * Math.PI * 2 * 4 * heightFreq * 100) * heightAmp
+                + Math.cos(t * Math.PI * 2 * 2.3 * heightFreq * 100) * heightAmp * 0.4;
+        const baseY = State.currentTheme.type === 'sky' ? h + 60 : h;
+        pts.push(new THREE.Vector3(pos.x, baseY, pos.z));
     }
 
-    const clearance = 4.0; 
-    const horizontalDistSq = 36.0; 
-    let skipUntil = 0;
-    for (let i = 15; i < TRACK_POINTS; i++) { 
+    // Close the loop smoothly by blending the last ~20% of points back
+    // toward the start position so CatmullRom closes without a sharp kink.
+    const blendStart = Math.floor(TRACK_POINTS * 0.80);
+    for (let i = blendStart; i < TRACK_POINTS; i++) {
+        const alpha = (i - blendStart) / (TRACK_POINTS - blendStart);
+        const smooth = alpha * alpha * (3 - 2 * alpha); // smoothstep
+        pts[i].x = THREE.MathUtils.lerp(pts[i].x, pts[0].x, smooth);
+        pts[i].z = THREE.MathUtils.lerp(pts[i].z, pts[0].z, smooth);
+        pts[i].y = THREE.MathUtils.lerp(pts[i].y, pts[0].y, smooth);
+    }
+
+    // ── Self-intersection correction pass ─────────────────────────────────
+    // Detect points that are too close in 3-D and push them apart both
+    // vertically AND horizontally so the track has clear visual separation.
+    const hClearance   = 9.0;   // minimum separation in XZ plane (world units)
+    const vClearance   = 6.0;   // minimum separation in Y
+    const hClearSq     = hClearance * hClearance;
+    const SKIP_NEAR    = 18;    // ignore adjacent points on the same arc
+    let   skipUntil    = 0;
+
+    for (let i = SKIP_NEAR; i < TRACK_POINTS; i++) {
         if (i < skipUntil) continue;
-        for (let j = 0; j < i - 15; j++) {
+        for (let j = 0; j < i - SKIP_NEAR; j++) {
             const dx = pts[i].x - pts[j].x;
             const dz = pts[i].z - pts[j].z;
-            if (dx * dx + dz * dz < horizontalDistSq) {
+            const hDistSq = dx * dx + dz * dz;
+
+            if (hDistSq < hClearSq) {
                 const dy = pts[i].y - pts[j].y;
-                if (Math.abs(dy) < clearance) {
-                    const pushUp = clearance - Math.abs(dy);
-                    const direction = dy >= 0 ? 1 : -1;
-                    for (let k = -10; k <= 10; k++) {
-                        const idx = (i + k + TRACK_POINTS) % TRACK_POINTS;
-                        const falloff = 1.0 - Math.abs(k) / 10;
-                        pts[idx].y += pushUp * direction * falloff * 1.5; 
+                if (Math.abs(dy) < vClearance) {
+                    // Push the neighbourhood of pts[i] UP (vertical separation)
+                    const pushUp  = (vClearance - Math.abs(dy)) * (dy >= 0 ? 1 : -1);
+                    // Also push pts[i] sideways away from pts[j] (horizontal sep)
+                    const hDist   = Math.sqrt(hDistSq) + 0.001;
+                    const pushOut = (hClearance - hDist) * 0.5;
+                    const nx = dx / hDist;
+                    const nz = dz / hDist;
+
+                    for (let k = -12; k <= 12; k++) {
+                        const idx     = (i + k + TRACK_POINTS) % TRACK_POINTS;
+                        const falloff = 1.0 - Math.abs(k) / 12;
+                        pts[idx].y   += pushUp  * falloff * 1.2;
+                        pts[idx].x   += nx * pushOut * falloff;
+                        pts[idx].z   += nz * pushOut * falloff;
                     }
-                    skipUntil = i + 25; 
+                    skipUntil = i + 30;
                     break;
                 }
             }
         }
     }
+
     
     State.curve.points = pts;
     State.curve.closed = true;
