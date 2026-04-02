@@ -250,10 +250,7 @@ const _camPosVec = new THREE.Vector3();
 const _lookPosVec = new THREE.Vector3();
 const _normalVec = new THREE.Vector3();
 
-function animate() {
-    const delta = Math.min(0.05, clock.getDelta());
-    const time = clock.getElapsedTime();
-
+function updateParticles(delta, time) {
     for(const anim of State.animatedObjects) { anim.update(time, delta); }
 
     if(State.weatherParticles) {
@@ -288,10 +285,177 @@ function animate() {
             State.coinParticlesData.splice(i, 1);
         }
     }
+}
+
+function processRideEvents(mapP, lastP, delta) {
+    const crossedInterval = (rT) => (lastP <= rT && mapP >= rT) || (lastP > mapP && (rT >= lastP || rT <= mapP));
+    let nextCoin = null;
+
+    for (let r of State.boostRingsData) {
+        if (r.active && crossedInterval(r.t)) {
+            r.active = false; r.ring.visible = false;
+            State.currentSpeed += State.baseSpeed * 15.0; 
+            playBoostSound();
+        }
+    }
+    
+    for (let c of State.coinsData) {
+        if (c.active) {
+            if(!nextCoin && c.t > mapP) nextCoin = c;
+            if (crossedInterval(c.t)) {
+                const laneDist = Math.abs(State.currentLaneOffset - (c.lane * 2.2));
+                if (laneDist < 1.5) { 
+                    c.active = false; c.coin.visible = false;
+                    const sx = window.innerWidth * 0.5; const sy = window.innerHeight * 0.6;
+                    showCoinScoreEffect(sx, sy, c.lane, () => { State.score += 100; flashScore(); });
+                    playCoinSound();
+                    
+                    const pGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+                    const pMat = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
+                    for(let pk=0; pk<15; pk++) {
+                        const p = new THREE.Mesh(pGeo, pMat);
+                        p.position.copy(c.coin.position);
+                        _velVec.set((Math.random()-0.5)*30, Math.random()*25+5, (Math.random()-0.5)*30);
+                        scene.add(p);
+                        State.coinParticlesData.push({ mesh: p, vel: _velVec.clone(), life: 1.0 });
+                    }
+                }
+            }
+            c.coin.rotation.z += delta * 6.0; 
+        }
+    }
+    return nextCoin;
+}
+
+function updateLightingAndSpeedLines(time, delta) {
+    if (currentDirLight && scene.background) {
+        const dayNight = Math.PI * (State.rideProgress / 2.0); 
+        const sunH = Math.sin(dayNight);
+        currentDirLight.position.set(Math.cos(dayNight) * 300, sunH * 200 - 20, 100);
+        if (sunH > 0.3) {
+            currentDirLight.color.setHex(0xffffff); scene.backgroundIntensity = 1.0;
+        } else if (sunH > 0) {
+            currentDirLight.color.setHex(0xff8844); scene.backgroundIntensity = Math.max(0.2, sunH / 0.3);
+        } else {
+            currentDirLight.color.setHex(0x111133); scene.backgroundIntensity = 0.2;
+        }
+    }
+
+    if (speedLineGroup) {
+        let speedLineOpacity = 0;
+        if (State.isRiding && (State.isBoosting || State.currentSpeed > State.baseSpeed * 2.5)) {
+            speedLineOpacity = 0.8;
+            speedLineGroup.position.z = (time * 800) % 150; 
+        }
+        speedLineGroup.material.opacity = THREE.MathUtils.lerp(speedLineGroup.material.opacity, speedLineOpacity, delta * 8);
+    }
+}
+
+function updateCameraRig(delta, localLook, tangent, slopeImpact) {
+    const mappedProgress = State.rideProgress % 1.0;
+    const rawIndex = mappedProgress * TRACK_SEGMENTS;
+    const i = Math.floor(rawIndex);
+    const nextIndex = (i + 1) % TRACK_SEGMENTS;
+    const weight = rawIndex - i;
+    
+    _binormalVec.lerpVectors(State.frames.binormals[i], State.frames.binormals[nextIndex], weight).normalize();
+    _camPosVec.lerpVectors(State.curve.getPointAt(i / TRACK_SEGMENTS), State.curve.getPointAt(nextIndex / TRACK_SEGMENTS), weight);
+    _lookPosVec.copy(State.curve.getPointAt((mappedProgress + 0.005) % 1.0));
+    _normalVec.lerpVectors(State.frames.normals[i], State.frames.normals[nextIndex], weight).normalize();
+    
+    _camPosVec.addScaledVector(_normalVec, 1.2);
+    
+    const targetOffset = State.playerLane * 2.2; 
+    State.currentLaneOffset = THREE.MathUtils.lerp(State.currentLaneOffset, targetOffset, delta * 12);
+    _camPosVec.addScaledVector(_binormalVec, State.currentLaneOffset); 
+    
+    const laneDelta = targetOffset - State.currentLaneOffset;
+    cartGroup.rotation.z = -laneDelta * 0.08; 
+    cartGroup.rotation.y = -laneDelta * 0.05;
+
+    for (const w of State.wheelsData) w.rotation.x -= State.currentSpeed * delta * 1500;
+    
+    if (renderer.xr.isPresenting) {
+        playerRig.position.copy(_camPosVec);
+        _lookPosVec.addScaledVector(_normalVec, 1.2);
+        _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
+        playerRig.up.copy(_normalVec);
+        playerRig.lookAt(_lookPosVec);
+    } else {
+        camera.position.copy(_camPosVec);
+        _lookPosVec.addScaledVector(_normalVec, 1.2);
+        _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
+        camera.up.copy(_normalVec);
+        camera.lookAt(_lookPosVec);
+    }
+    
+    const targetFov = 80 + (State.currentSpeed * 60000);
+    camera.fov = THREE.MathUtils.lerp(camera.fov, Math.min(130, targetFov), delta * 4);
+    camera.updateProjectionMatrix();
+
+    updateEngineAudio(State.currentSpeed);
+    
+    localLook.copy(camera.worldToLocal(_lookPosVec.clone()));
+
+    const gForceRaw = 1.0 + (slopeImpact * 2.0) + ((State.targetSpeed - State.currentSpeed) * 500);
+    _vrGForce = Math.max(0, gForceRaw);
+}
+
+function updateHUDAndTelemetry(tangent, localLook, nextCoin) {
+    const isWarning = (_vrGForce > 2.5 || _vrGForce < 0.2);
+    updateHUD({
+        displaySpeed: Math.floor(State.currentSpeed * 100000),
+        accelRatio: Math.min(100, (State.currentSpeed / (State.baseSpeed * 4)) * 100),
+        displayAlt: Math.floor(_camPosVec.y + 100),
+        deg: Math.floor((Math.atan2(tangent.x, tangent.z) * 180 / Math.PI + 180)),
+        gForce: _vrGForce,
+        pitchDeg: Math.asin(Math.max(-1, Math.min(1, tangent.y))) * 180 / Math.PI,
+        isTurnLeft: localLook.x < -0.15,
+        isTurnRight: localLook.x > 0.15,
+        isWarning: isWarning
+    });
+
+    updateMinimap(State.rideProgress % 1.0);
+
+    if (State.isDebug) {
+        const activeCoins = State.coinsData.filter(c => c.active).length;
+        updateDebugPanel(`
+=== TELEMETRY ===<br>
+RIDE_T: ${(State.rideProgress % 1.0).toFixed(5)}<br>
+LANE_IDX: ${State.playerLane}<br>
+LANE_OFFSET: ${State.currentLaneOffset.toFixed(2)}<br>
+SPD: ${(State.currentSpeed * 60).toFixed(3)}<br>
+COINS_ALIVE: ${activeCoins}<br>
+=================<br>
+-- NEXT COIN --<br>
+C_TIME: ${nextCoin ? nextCoin.t.toFixed(4) : 'N/A'}<br>
+C_LANE: ${nextCoin ? nextCoin.lane : 'N/A'} (Offset: ${nextCoin ? (nextCoin.lane * 2.2).toFixed(2) : 'N/A'})<br>
+HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(State.currentLaneOffset - (nextCoin.lane * 2.2)) < 1.5) ? '#0f0' : '#f00'}">${nextCoin ? Math.abs(State.currentLaneOffset - (nextCoin.lane * 2.2)).toFixed(3) : 'N/A'}</span>
+        `);
+    }
+}
+
+function checkRideEnd() {
+    if (State.rideProgress >= 2) {
+        State.isRiding = false; State.rideProgress = 0;
+        document.getElementById('advanced-hud').classList.add('hidden');
+        document.getElementById('start-screen').classList.remove('hidden');
+        setTimeout(() => { document.getElementById('start-screen').style.opacity = '1'; }, 50);
+        const menuB = document.getElementById('menu-btn'); if (menuB) menuB.style.display = 'none';
+        const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
+    }
+}
+
+function animate() {
+    const delta = Math.min(0.05, clock.getDelta());
+    const time = clock.getElapsedTime();
+
+    updateParticles(delta, time);
 
     if (State.isRiding) {
         State.lastProgress = State.rideProgress;
         const bUI = document.getElementById('boost-alert');
+        
         if (State.isBoosting) {
             State.targetSpeed = State.baseSpeed * 3.5;
             bUI.classList.remove('hidden');
@@ -315,148 +479,15 @@ function animate() {
 
         const mapP = State.rideProgress % 1.0;
         const lastP = State.lastProgress % 1.0;
-        const crossedInterval = (rT) => (lastP <= rT && mapP >= rT) || (lastP > mapP && (rT >= lastP || rT <= mapP));
-
-        let nextCoin = null;
-
-        for (let r of State.boostRingsData) {
-            if (r.active && crossedInterval(r.t)) {
-                r.active = false; r.ring.visible = false;
-                State.currentSpeed += State.baseSpeed * 15.0; 
-                playBoostSound();
-            }
-        }
         
-        for (let c of State.coinsData) {
-            if (c.active) {
-                if(!nextCoin && c.t > mapP) nextCoin = c;
-                if (crossedInterval(c.t)) {
-                    const laneDist = Math.abs(State.currentLaneOffset - (c.lane * 2.2));
-                    if (laneDist < 1.5) { 
-                        c.active = false; c.coin.visible = false;
-                        const sx = window.innerWidth * 0.5; const sy = window.innerHeight * 0.6;
-                        showCoinScoreEffect(sx, sy, c.lane, () => {
-                            State.score += 100; flashScore();
-                        });
-                        playCoinSound();
-                        
-                        const pGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-                        const pMat = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
-                        for(let pk=0; pk<15; pk++) {
-                            const p = new THREE.Mesh(pGeo, pMat);
-                            p.position.copy(c.coin.position);
-                            _velVec.set((Math.random()-0.5)*30, Math.random()*25+5, (Math.random()-0.5)*30);
-                            scene.add(p);
-                            State.coinParticlesData.push({ mesh: p, vel: _velVec.clone(), life: 1.0 });
-                        }
-                    }
-                }
-                c.coin.rotation.z += delta * 6.0; 
-            }
-        }
-
-        if (currentDirLight && scene.background) {
-            const dayNight = Math.PI * (State.rideProgress / 2.0); 
-            const sunH = Math.sin(dayNight);
-            currentDirLight.position.set(Math.cos(dayNight) * 300, sunH * 200 - 20, 100);
-            if (sunH > 0.3) {
-                currentDirLight.color.setHex(0xffffff); scene.backgroundIntensity = 1.0;
-            } else if (sunH > 0) {
-                currentDirLight.color.setHex(0xff8844); scene.backgroundIntensity = Math.max(0.2, sunH / 0.3);
-            } else {
-                currentDirLight.color.setHex(0x111133); scene.backgroundIntensity = 0.2;
-            }
-        }
+        const nextCoin = processRideEvents(mapP, lastP, delta);
         
-        if (State.rideProgress >= 2) {
-            State.isRiding = false; State.rideProgress = 0;
-            document.getElementById('advanced-hud').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-            setTimeout(() => { document.getElementById('start-screen').style.opacity = '1'; }, 50);
-            const menuB = document.getElementById('menu-btn'); if (menuB) menuB.style.display = 'none';
-            const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
-        }
-
-        const mappedProgress = State.rideProgress % 1.0;
-        const rawIndex = mappedProgress * TRACK_SEGMENTS;
-        const i = Math.floor(rawIndex);
-        const nextIndex = (i + 1) % TRACK_SEGMENTS;
-        const weight = rawIndex - i;
+        const localLook = new THREE.Vector3();
+        updateCameraRig(delta, localLook, tangent, slopeImpact);
+        updateLightingAndSpeedLines(time, delta);
+        updateHUDAndTelemetry(tangent, localLook, nextCoin);
         
-        _binormalVec.lerpVectors(State.frames.binormals[i], State.frames.binormals[nextIndex], weight).normalize();
-        _camPosVec.lerpVectors(State.curve.getPointAt(i / TRACK_SEGMENTS), State.curve.getPointAt(nextIndex / TRACK_SEGMENTS), weight);
-        _lookPosVec.copy(State.curve.getPointAt((mappedProgress + 0.005) % 1.0));
-        _normalVec.lerpVectors(State.frames.normals[i], State.frames.normals[nextIndex], weight).normalize();
-        
-        _camPosVec.addScaledVector(_normalVec, 1.2);
-        
-        const targetOffset = State.playerLane * 2.2; 
-        State.currentLaneOffset = THREE.MathUtils.lerp(State.currentLaneOffset, targetOffset, delta * 12);
-        _camPosVec.addScaledVector(_binormalVec, State.currentLaneOffset); 
-        
-        const laneDelta = targetOffset - State.currentLaneOffset;
-        cartGroup.rotation.z = -laneDelta * 0.08; 
-        cartGroup.rotation.y = -laneDelta * 0.05;
-
-        for (const w of State.wheelsData) w.rotation.x -= State.currentSpeed * delta * 1500;
-        
-        if (renderer.xr.isPresenting) {
-            playerRig.position.copy(_camPosVec);
-            _lookPosVec.addScaledVector(_normalVec, 1.2);
-            _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
-            playerRig.up.copy(_normalVec);
-            playerRig.lookAt(_lookPosVec);
-            // xrRig.position.y is fixed at -1.6 on sessionstart (local-floor)
-        } else {
-            camera.position.copy(_camPosVec);
-            _lookPosVec.addScaledVector(_normalVec, 1.2);
-            _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
-            camera.up.copy(_normalVec);
-            camera.lookAt(_lookPosVec);
-        }
-        
-        const targetFov = 80 + (State.currentSpeed * 60000);
-        camera.fov = THREE.MathUtils.lerp(camera.fov, Math.min(130, targetFov), delta * 4);
-        camera.updateProjectionMatrix();
-
-        updateEngineAudio(State.currentSpeed);
-
-        const localLook = camera.worldToLocal(_lookPosVec.clone());
-        const gForceRaw = 1.0 + (slopeImpact * 2.0) + ((State.targetSpeed - State.currentSpeed) * 500);
-        const gForce = Math.max(0, gForceRaw);
-        _vrGForce = gForce; // expose to VR HUD
-        const isWarning = (gForce > 2.5 || gForce < 0.2);
-
-        updateHUD({
-            displaySpeed: Math.floor(State.currentSpeed * 100000),
-            accelRatio: Math.min(100, (State.currentSpeed / (State.baseSpeed * 4)) * 100),
-            displayAlt: Math.floor(_camPosVec.y + 100),
-            deg: Math.floor((Math.atan2(tangent.x, tangent.z) * 180 / Math.PI + 180)),
-            gForce: gForce,
-            pitchDeg: Math.asin(Math.max(-1, Math.min(1, tangent.y))) * 180 / Math.PI,
-            isTurnLeft: localLook.x < -0.15,
-            isTurnRight: localLook.x > 0.15,
-            isWarning: isWarning
-        });
-
-        updateMinimap(State.rideProgress % 1.0);
-
-        if (State.isDebug) {
-            const activeCoins = State.coinsData.filter(c => c.active).length;
-            updateDebugPanel(`
-=== TELEMETRY ===<br>
-RIDE_T: ${(State.rideProgress % 1.0).toFixed(5)}<br>
-LANE_IDX: ${State.playerLane}<br>
-LANE_OFFSET: ${State.currentLaneOffset.toFixed(2)}<br>
-SPD: ${(State.currentSpeed * 60).toFixed(3)}<br>
-COINS_ALIVE: ${activeCoins}<br>
-=================<br>
--- NEXT COIN --<br>
-C_TIME: ${nextCoin ? nextCoin.t.toFixed(4) : 'N/A'}<br>
-C_LANE: ${nextCoin ? nextCoin.lane : 'N/A'} (Offset: ${nextCoin ? (nextCoin.lane * 2.2).toFixed(2) : 'N/A'})<br>
-HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(State.currentLaneOffset - (nextCoin.lane * 2.2)) < 1.5) ? '#0f0' : '#f00'}">${nextCoin ? Math.abs(State.currentLaneOffset - (nextCoin.lane * 2.2)).toFixed(3) : 'N/A'}</span>
-            `);
-        }
+        checkRideEnd();
     } else {
         if (renderer.xr.isPresenting) {
             playerRig.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
@@ -465,19 +496,10 @@ HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(State.currentLaneOffset 
             camera.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
             camera.lookAt(0, 0, 0);
         }
-    }
-    
-    if (speedLineGroup) {
-        let speedLineOpacity = 0;
-        if (State.isRiding && (State.isBoosting || State.currentSpeed > State.baseSpeed * 2.5)) {
-            speedLineOpacity = 0.8;
-            speedLineGroup.position.z = (time * 800) % 150; 
-        }
-        speedLineGroup.material.opacity = THREE.MathUtils.lerp(speedLineGroup.material.opacity, speedLineOpacity, delta * 8);
+        updateLightingAndSpeedLines(time, delta);
     }
     
     if (renderer.xr.isPresenting) {
-        // Update the in-world VR HUD every frame
         updateVrHud({
             speed:     Math.floor(State.currentSpeed * 100000),
             score:     State.score,
