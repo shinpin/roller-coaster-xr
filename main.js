@@ -115,8 +115,9 @@ p2.cartGroup.position.set(0, -0.65, -1.0);
 
 // --- Menu Cart Model (3D display on start screen) ---
 const menuCartObj = createCartModel(0x00ffcc, true, 'MENU');
-scene.add(menuCartObj.cartGroup);
-menuCartObj.cartGroup.scale.setScalar(1.5); // make it big
+camera.add(menuCartObj.cartGroup);
+menuCartObj.cartGroup.scale.setScalar(3.5); // Make it undeniably massive
+menuCartObj.cartGroup.position.set(-2.5, -1.5, -10); // Directly in local view space
 
 // Spotlight (Only P1 needs it for VR compatibility, P2 splitscreen gets it naturally from global lights or we duplicate if too dark. Let's duplicate)
 const headLight = new THREE.SpotLight(0xffffff, 20); 
@@ -635,18 +636,6 @@ function animate() {
     } else {
          if (menuCartObj) {
             menuCartObj.cartGroup.visible = true;
-            State.players[0].cam.updateMatrixWorld();
-            const cam = State.players[0].cam;
-            const camDir = new THREE.Vector3(0,0,-1).applyQuaternion(cam.quaternion);
-            const camLeft = new THREE.Vector3(-1,0,0).applyQuaternion(cam.quaternion);
-            const camUp = new THREE.Vector3(0,1,0).applyQuaternion(cam.quaternion);
-            
-            // Place it EXACTLY in front, 10 units away, slightly left
-            menuCartObj.cartGroup.position.copy(cam.position)
-                .add(camDir.multiplyScalar(10))
-                .add(camLeft.multiplyScalar(3.5))
-                .add(camUp.multiplyScalar(-1.5));
-                
             menuCartObj.cartGroup.rotation.set(0.1, time * 0.3, 0.05);
             menuCartObj.wheelsData.forEach(w => w.rotation.x += delta * 15);
          }
