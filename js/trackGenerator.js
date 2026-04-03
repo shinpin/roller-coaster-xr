@@ -785,7 +785,7 @@ function updateMinimapBounds() {
         if(p.z < minZ) minZ = p.z;
         if(p.z > maxZ) maxZ = p.z;
     });
-    const minimapCanvas = document.getElementById('minimap');
+    const minimapCanvas = document.getElementById('minimap-1');
     if (minimapCanvas) {
         const padding = 20;
         const w = minimapCanvas.width - padding * 2;

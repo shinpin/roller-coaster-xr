@@ -12,8 +12,8 @@ body { background-color: var(--bg-dark); color: white; overflow: hidden; width: 
 #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
 
 /* Start Screen */
-#start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: opacity 0.5s; pointer-events: auto; }
-.glass-panel { background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+#start-screen { position: absolute; top: 50%; right: 5%; left: auto; transform: translateY(-50%); transition: opacity 0.5s; pointer-events: auto; display: flex; flex-direction: column; align-items: flex-end; z-index: 1000;}
+.glass-panel { background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 40px; text-align: left; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 h1 { font-family: sans-serif; font-size: 3rem; margin-bottom: 5px; background: linear-gradient(90deg, var(--primary), var(--secondary)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px rgba(0, 243, 255, 0.3); }
 .hint { font-size: 0.9rem; margin-top: 15px; opacity: 0.7; }
 
@@ -179,3 +179,14 @@ body::after {
 }
 .env-value-style { font-size: 1.5rem; text-shadow: 0 0 10px rgba(0,255,255,0.8); }
 
+/* Menu Specific Classes */
+.main-title { text-align: center; margin-top: 50px; letter-spacing: 2px; text-shadow: 0 0 15px #0ff; z-index: 5; position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; pointer-events: none; }
+.menu-panel { width: 380px; padding: 25px; margin-bottom: 15px; z-index: 1; }
+.menu-grid { display: flex; flex-direction: column; gap: 15px; margin: 0; }
+.full-width-select { width: 100%; }
+.auto-width-select { width: 100%; min-width: auto; }
+.flex-row-gap { display: flex; gap: 10px; }
+.flex-1 { flex: 1; }
+.flex-1-btn { margin: 0; min-width: 160px; font-size: 1.1rem; height: 100%; flex: 1; }
+.flex-1-container { height: 100%; flex: 1; }
+.action-buttons-flex { display: flex; gap: 15px; justify-content: flex-end; align-items: stretch; height: 60px; width: 100%; }

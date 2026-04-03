@@ -1,26 +1,30 @@
 import { State } from './state.js';
 import { THEMES, TIMES } from './config.js';
 
-let UI = {};
+let UIs = [];
+let lastStateTexts = [{}, {}];
 
 export function initUI(callbacks) {
-    // Cache DOM Elements to avoid expensive querying in game loop
-    UI = {
-        speedVal: document.getElementById('speed-val'),
-        accelBar: document.getElementById('accel-bar'),
-        altVal: document.getElementById('alt-val'),
-        headVal: document.getElementById('head-val'),
-        compass: document.getElementById('compass'),
-        gforceVal: document.getElementById('gforce-val'),
-        pitchLadder: document.getElementById('pitch-ladder'),
-        leftIdr: document.getElementById('turn-indicator-left'),
-        rightIdr: document.getElementById('turn-indicator-right'),
-        warningAlert: document.getElementById('warning-alert'),
-        scoreUI: document.getElementById('score-ui'),
-        envVal: document.getElementById('env-val'),
-        rankVal: document.getElementById('rank-val'),
-        debugPanel: document.getElementById('debug-panel')
-    };
+    // Cache DOM Elements for both screens (P1=-1, P2=-2)
+    for (let i = 1; i <= 2; i++) {
+        UIs.push({
+            speedVal: document.getElementById(`speed-val-${i}`),
+            accelBar: document.getElementById(`accel-bar-${i}`),
+            altVal: document.getElementById(`alt-val-${i}`),
+            headVal: document.getElementById(`head-val-${i}`),
+            compass: document.getElementById(`compass-${i}`),
+            gforceVal: document.getElementById(`gforce-val-${i}`),
+            pitchLadder: document.getElementById(`pitch-ladder-${i}`),
+            leftIdr: document.getElementById(`turn-indicator-left-${i}`),
+            rightIdr: document.getElementById(`turn-indicator-right-${i}`),
+            warningAlert: document.getElementById(`warning-alert-${i}`),
+            scoreUI: document.getElementById(`score-ui-${i}`),
+            scoreVal: document.getElementById(`score-val-${i}`),
+            envVal: document.getElementById(`env-val-${i}`),
+            rankVal: document.getElementById(`rank-val-${i}`)
+        });
+        lastStateTexts[i-1] = { speed: '', alt: '', head: '', g: '', pitch: '', rank: 1 };
+    }
 
     // Attach Event Listeners
     setupEventListeners(callbacks);
@@ -34,6 +38,7 @@ function setupEventListeners(callbacks) {
         const btn = document.getElementById('debug-btn');
         if (State.isDebug) {
             panel.classList.remove('hidden');
+            if (panel.innerHTML.trim() === '') panel.innerHTML = 'Waiting for telemetry...';
             btn.style.color = '#0f0'; btn.style.borderColor = '#0f0';
         } else {
             panel.classList.add('hidden');
@@ -60,6 +65,8 @@ function setupEventListeners(callbacks) {
     document.getElementById('audio-toggle-btn').addEventListener('click', callbacks.onToggleAudio);
     document.getElementById('save-btn').addEventListener('click', () => saveCurrentTrack());
     document.getElementById('start-btn').addEventListener('click', callbacks.onStart);
+    const retBtn = document.getElementById('return-menu-btn');
+    if (retBtn) retBtn.addEventListener('click', callbacks.onReturnMenu);
 
     document.getElementById('theme-select').addEventListener('change', callbacks.onSettingChange);
     document.getElementById('time-select').addEventListener('change', callbacks.onSettingChange);
@@ -82,50 +89,46 @@ function setupEventListeners(callbacks) {
 }
 
 // State Caching for Throttling UI Updates
-let lastSpeedTxt = '';
-let lastAltTxt = '';
-let lastHeadTxt = '';
-let lastGForceTxt = '';
-let lastPitchTxt = '';
-let lastRank = 1;
+export function updateHUD(data, playerIndex) {
+    const UI = UIs[playerIndex];
+    if (!UI) return;
+    const last = lastStateTexts[playerIndex];
 
-export function updateHUD(data) {
-    // Use string caching to prevent redundant DOM updates
     const speedTxt = `${data.displaySpeed}<span> km/h</span>`;
-    if (speedTxt !== lastSpeedTxt) {
+    if (speedTxt !== last.speed) {
         UI.speedVal.innerHTML = speedTxt;
         UI.accelBar.style.width = `${data.accelRatio}%`;
-        lastSpeedTxt = speedTxt;
+        last.speed = speedTxt;
     }
 
-    if (data.rank && data.rank !== lastRank) {
+    if (data.rank && data.rank !== last.rank) {
         if (UI.rankVal) UI.rankVal.innerText = data.rank;
-        lastRank = data.rank;
+        last.rank = data.rank;
     }
 
     const altTxt = `${data.displayAlt}<span> m</span>`;
-    if (altTxt !== lastAltTxt) {
+    if (altTxt !== last.alt) {
         UI.altVal.innerHTML = altTxt;
-        lastAltTxt = altTxt;
+        last.alt = altTxt;
     }
 
     const headTxt = `${data.deg}<span> &deg;</span>`;
-    if (headTxt !== lastHeadTxt) {
+    if (headTxt !== last.head) {
         UI.headVal.innerHTML = headTxt;
         UI.compass.style.transform = `translateX(${-data.deg * 2}px)`;
-        lastHeadTxt = headTxt;
+        last.head = headTxt;
     }
 
     const gForceTxt = `${data.gForce.toFixed(1)}<span> G</span>`;
-    if (gForceTxt !== lastGForceTxt) {
+    if (gForceTxt !== last.g) {
         UI.gforceVal.innerHTML = gForceTxt;
-        lastGForceTxt = gForceTxt;
+        last.g = gForceTxt;
     }
 
     const pitchTxt = `translateY(${data.pitchDeg * 3}px)`;
-    if (pitchTxt !== lastPitchTxt) {
+    if (pitchTxt !== last.pitch) {
         UI.pitchLadder.style.transform = pitchTxt;
-        lastPitchTxt = pitchTxt;
+        last.pitch = pitchTxt;
     }
 
     // Indicators Check
@@ -147,7 +150,7 @@ export function updateHUD(data) {
     }
 }
 
-export function showCoinScoreEffect(sx, sy, lane, onComplete) {
+export function showCoinScoreEffect(sx, sy, playerIndex, onComplete) {
     const floatingCoin = document.createElement('div');
     floatingCoin.className = 'floating-coin';
     floatingCoin.style.left = sx + 'px';
@@ -157,9 +160,16 @@ export function showCoinScoreEffect(sx, sy, lane, onComplete) {
     // Force reflow
     void floatingCoin.offsetWidth;
     
-    const scoreRect = UI.scoreUI.getBoundingClientRect();
-    const tx = scoreRect.left + scoreRect.width/2;
-    const ty = scoreRect.top + scoreRect.height/2;
+    const u = UIs[playerIndex];
+    if (!u) {
+        onComplete();
+        if (document.body.contains(floatingCoin)) floatingCoin.remove();
+        return;
+    }
+    
+    const rx1 = u.scoreUI?.getBoundingClientRect() || { left: 0, top: 0, width: 0, height: 0 };
+    const tx = rx1.left + rx1.width/2;
+    const ty = rx1.top + rx1.height/2;
     
     floatingCoin.style.transform = `translate(${tx - sx}px, ${ty - sy}px) scale(0.5)`;
     
@@ -169,28 +179,33 @@ export function showCoinScoreEffect(sx, sy, lane, onComplete) {
     }, 500);
 }
 
-export function flashScore() {
-    UI.scoreVal.innerText = State.score;
-    UI.scoreUI.classList.remove('score-bounce');
-    void UI.scoreUI.offsetWidth; 
-    UI.scoreUI.classList.add('score-bounce');
+export function flashScore(playerIndex) {
+    const u = UIs[playerIndex];
+    if (u && u.scoreVal) {
+        u.scoreVal.innerText = State.players[playerIndex].score;
+        u.scoreVal.classList.remove('score-bounce');
+        void u.scoreVal.offsetWidth; 
+        u.scoreVal.classList.add('score-bounce');
+    }
 }
 
 export function updateDebugPanel(text) {
-    if (State.isDebug) {
-        UI.debugPanel.innerHTML = text;
+    const debugPanel = document.getElementById('debug-panel');
+    if (debugPanel && !debugPanel.classList.contains('hidden')) {
+        debugPanel.innerHTML = text;
     }
 }
 
 export function updateEnvironmentUI() {
     const weatherIcons = { 'clear': '☀️', 'rain': '🌧️', 'snow': '❄️' };
     const timeStrings = { 'day': '10:00 ', 'sunset': '17:30 ', 'night': '23:00 ' };
-    if (UI.envVal) {
-        const themeType = typeof State.currentTheme.type === 'string' ? State.currentTheme.type : 'underwater';
-        const wIcon = weatherIcons[State.currentWeather] || '☁️';
-        const tStr = timeStrings[Object.keys(TIMES).find(k => TIMES[k] === State.currentTime)] || '12:00 ';
-        UI.envVal.innerHTML = `${wIcon} ${tStr}`;
-    }
+    UIs.forEach(u => {
+        if (u && u.envVal) {
+            const wIcon = weatherIcons[State.currentWeather] || '☁️';
+            const tStr = timeStrings[Object.keys(TIMES).find(k => TIMES[k] === State.currentTime)] || '12:00 ';
+            u.envVal.innerHTML = `${wIcon} ${tStr}`;
+        }
+    });
 }
 
 function getSavedTracks() {
@@ -254,9 +269,9 @@ function populateSavedTracksUI() {
     });
 }
 
-export function updateMinimap(progress) {
-    if (!State.curve) return;
-    const canvas = document.getElementById('minimap');
+export function updateMinimap(playerIndex) {
+    if (!State.curve || !State.players[playerIndex]) return;
+    const canvas = document.getElementById(`minimap-${playerIndex + 1}`);
     if(!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -271,23 +286,42 @@ export function updateMinimap(progress) {
     ctx.closePath();
     ctx.stroke();
     
-    const bp = State.curve.getPointAt(progress);
+    // Draw Current Player
+    const myProgress = State.players[playerIndex].rideProgress % 1.0;
+    const bp = State.curve.getPointAt(myProgress);
     const px = (canvas.width / 2) + (bp.x - State.minimapCx) * State.minimapScale;
     const py = (canvas.height / 2) + (bp.z - State.minimapCz) * State.minimapScale;
     
-    // Draw Player (Distinctive Ring/Pulse look)
+    // Draw Player (Distinctive Ring/Pulse)
     ctx.beginPath();
     ctx.arc(px, py, 6, 0, Math.PI*2);
-    ctx.fillStyle = '#ffffff'; // White center
+    ctx.fillStyle = '#ffffff';
     ctx.shadowBlur = 12;
-    ctx.shadowColor = '#00ffff'; // Neon cyan glow
+    ctx.shadowColor = playerIndex === 0 ? '#00ffff' : '#ff00aa'; 
     ctx.fill();
+    ctx.shadowBlur = 0;
     
     ctx.beginPath();
     ctx.arc(px, py, 8 + Math.sin(Date.now() * 0.005) * 2, 0, Math.PI*2);
-    ctx.strokeStyle = '#00ffff';
+    ctx.strokeStyle = playerIndex === 0 ? '#00ffff' : '#ff00aa';
     ctx.lineWidth = 2;
     ctx.stroke();
+
+    // Draw Opponent in Multiplayer Mode
+    if (State.multiplayerMode) {
+        const oppIndex = playerIndex === 0 ? 1 : 0;
+        if (State.players[oppIndex]) {
+            const oppProgress = State.players[oppIndex].rideProgress % 1.0;
+            const oppBp = State.curve.getPointAt(oppProgress);
+            const opx = (canvas.width / 2) + (oppBp.x - State.minimapCx) * State.minimapScale;
+            const opy = (canvas.height / 2) + (oppBp.z - State.minimapCz) * State.minimapScale;
+            
+            ctx.beginPath();
+            ctx.arc(opx, opy, 4, 0, Math.PI*2);
+            ctx.fillStyle = '#ff0055'; // Red indicator
+            ctx.fill();
+        }
+    }
 
     // Draw NPCs
     if (State.npcs) {
@@ -309,3 +343,45 @@ export function updateMinimap(progress) {
     ctx.shadowBlur = 0;
 }
 
+export function showMatchResult(p1Score, p2Score, isMultiplayer) {
+    const screen = document.getElementById('match-result-screen');
+    const title = document.getElementById('match-winner-title');
+    const p1ScoreEl = document.getElementById('match-p1-score');
+    const p2ScoreEl = document.getElementById('match-p2-score');
+    const p2StatsContainer = document.getElementById('match-p2-stats');
+    
+    if (!screen) return;
+    
+    p1ScoreEl.innerText = `Score: ${p1Score}`;
+    
+    if (isMultiplayer) {
+        p2StatsContainer.style.display = 'block';
+        p2ScoreEl.innerText = `Score: ${p2Score}`;
+        
+        if (p1Score > p2Score) {
+            title.innerText = "PLAYER 1 WINS!";
+            title.style.color = "#00ffff";
+            title.style.textShadow = "0 0 20px #00ffff";
+        } else if (p2Score > p1Score) {
+            title.innerText = "PLAYER 2 WINS!";
+            title.style.color = "#ff00aa";
+            title.style.textShadow = "0 0 20px #ff00aa";
+        } else {
+            title.innerText = "DRAW!";
+            title.style.color = "#ffffff";
+            title.style.textShadow = "0 0 20px #ffffff";
+        }
+    } else {
+        p2StatsContainer.style.display = 'none';
+        title.innerText = "RIDE COMPLETE!";
+        title.style.color = "#00ffff";
+        title.style.textShadow = "0 0 20px #00ffff";
+    }
+    
+    screen.classList.remove('hidden');
+}
+
+export function hideMatchResult() {
+    const screen = document.getElementById('match-result-screen');
+    if (screen) screen.classList.add('hidden');
+}

@@ -11,16 +11,26 @@ import { TRACK_SEGMENTS } from './js/config.js';
 import { State } from './js/state.js';
 import { setupAudio, playCoinSound, playBoostSound, updateEngineAudio, audioCtx } from './js/audio.js';
 import { setupInput, setupXRInput } from './js/input.js';
-import { initUI, updateHUD, showCoinScoreEffect, flashScore, updateDebugPanel, updateMinimap } from './js/ui.js';
+import { initUI, updateHUD, showCoinScoreEffect, flashScore, updateDebugPanel, updateMinimap, showMatchResult, hideMatchResult } from './js/ui.js';
 import { buildScene, currentDirLight, createCartModel } from './js/trackGenerator.js';
 
 // --- Global Renderer Setup ---
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 const playerRig = new THREE.Group();
+const playerRig2 = new THREE.Group();
 scene.add(playerRig);
+scene.add(playerRig2);
+
 const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500);
+const camera2 = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500);
 scene.add(camera);
+scene.add(camera2);
+
+State.players = [
+    { id: 1, lane: -1, currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1 },
+    { id: 2, lane: 1,  currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1 }
+];
 
 const renderer = new THREE.WebGLRenderer({ antialias: false }); 
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -58,38 +68,87 @@ renderer.xr.addEventListener('sessionend', () => {
 });
 
 container.appendChild(renderer.domElement);
-document.body.appendChild( VRButton.createButton( renderer ) );
 
-// --- Player Cart Model ---
-const { cartGroup, wheelsData } = createCartModel(0xdd1111);
+const vrBtn = VRButton.createButton(renderer);
+if (vrBtn) {
+    vrBtn.style.position = 'static';
+    vrBtn.style.margin = '0';
+    vrBtn.style.width = '100%';
+    vrBtn.style.height = '100%';
+    vrBtn.style.padding = '0 20px';
+    vrBtn.style.borderRadius = '8px';
+    vrBtn.style.fontSize = '1.1rem';
+    vrBtn.style.textTransform = 'uppercase';
+    vrBtn.style.fontWeight = 'bold';
+    vrBtn.style.transition = 'all 0.3s ease';
+    vrBtn.style.boxShadow = '0 0 15px rgba(0, 238, 255, 0.4)';
+    vrBtn.style.border = '2px solid rgba(0, 238, 255, 0.8)';
+    vrBtn.style.background = 'rgba(0, 50, 100, 0.6)';
+    vrBtn.style.color = '#fff';
+    vrBtn.style.cursor = 'pointer';
+    
+    // Attempt to rename if it says 'ENTER VR'
+    if(vrBtn.textContent === 'ENTER VR') vrBtn.textContent = 'ENTER VR RIDE';
+
+    vrBtn.addEventListener('click', () => {
+        if (vrBtn.textContent !== 'VR NOT SUPPORTED' && !State.isRiding) {
+            window.startGame();
+        }
+    });
+    
+    document.getElementById('vr-btn-container').appendChild(vrBtn);
+}
+
+// --- Player 1 Cart Model ---
+const { cartGroup, wheelsData } = createCartModel(0xdd1111, false, '01');
 State.wheelsData.push(...wheelsData);
 camera.add(cartGroup);
 cartGroup.scale.setScalar(0.675 * 0.8); 
 cartGroup.position.set(0, -0.65, -1.0);  
 
-// Spotlight
+// --- Player 2 Cart Model ---
+const p2 = createCartModel(0x1111dd, false, '02');
+State.wheelsData.push(...p2.wheelsData);
+camera2.add(p2.cartGroup);
+p2.cartGroup.scale.setScalar(0.675 * 0.8); 
+p2.cartGroup.position.set(0, -0.65, -1.0);  
+
+// --- Menu Cart Model (3D display on start screen) ---
+const menuCartObj = createCartModel(0x00ffcc, true, 'MENU');
+scene.add(menuCartObj.cartGroup);
+menuCartObj.cartGroup.scale.setScalar(1.5); // make it big
+
+// Spotlight (Only P1 needs it for VR compatibility, P2 splitscreen gets it naturally from global lights or we duplicate if too dark. Let's duplicate)
 const headLight = new THREE.SpotLight(0xffffff, 20); 
 headLight.angle = Math.PI / 6; headLight.penumbra = 0.3; headLight.distance = 350; headLight.castShadow = true;
 camera.add(headLight);
 const headLightTarget = new THREE.Object3D(); camera.add(headLightTarget); headLightTarget.position.set(0, -4, -15); headLight.target = headLightTarget;
 
-// Speed Lines
+const headLight2 = new THREE.SpotLight(0xffffff, 20); 
+headLight2.angle = Math.PI / 6; headLight2.penumbra = 0.3; headLight2.distance = 350; headLight2.castShadow = true;
+camera2.add(headLight2);
+const headLightTarget2 = new THREE.Object3D(); camera2.add(headLightTarget2); headLightTarget2.position.set(0, -4, -15); headLight2.target = headLightTarget2;
+
+// Speed Lines for P1
 const speedLineCount = 150;
 const speedLineGeo = new THREE.CylinderGeometry(0.04, 0.04, 30, 4); speedLineGeo.rotateX(Math.PI / 2); 
 const speedLineGroup = new THREE.InstancedMesh(speedLineGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 }), speedLineCount);
 speedLineGroup.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 const tempObj = new THREE.Object3D();
 for (let i = 0; i < speedLineCount; i++) {
-    const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 20 + 3; const zOff = -(Math.random() * 250 + 50); // spawn far in front (-300 to -50)
+    const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 20 + 3; const zOff = -(Math.random() * 250 + 50); 
     tempObj.position.set(Math.cos(angle)*radius, Math.sin(angle)*radius, zOff);
     tempObj.scale.set(1, 1, Math.random() * 1.5 + 0.5); tempObj.updateMatrix();
     speedLineGroup.setMatrixAt(i, tempObj.matrix);
 }
 camera.add(speedLineGroup);
+const speedLineGroup2 = speedLineGroup.clone();
+camera2.add(speedLineGroup2);
 
 // --- Post-Processing Pipeline ---
 const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
 const bokehPass = new BokehPass(scene, camera, { focus: 30.0, aperture: 0.0001, maxblur: 0.005, width: window.innerWidth, height: window.innerHeight });
 bokehPass.enabled = false; 
 composer.addPass(bokehPass);
@@ -97,6 +156,17 @@ const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, windo
 bloomPass.threshold = 0.4; bloomPass.strength = 0.4; bloomPass.radius = 0.3;    
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+
+// Attach physics rigs
+State.players[0].rig = playerRig;
+State.players[0].cam = camera;
+State.players[0].slg = speedLineGroup;
+State.players[0].hl = headLight;
+
+State.players[1].rig = playerRig2;
+State.players[1].cam = camera2;
+State.players[1].slg = speedLineGroup2;
+State.players[1].hl = headLight2;
 
 // --- User Interface & Input Subsystems ---
 window.startGame = function() {
@@ -117,12 +187,28 @@ window.startGame = function() {
     document.getElementById('start-screen').style.opacity = '0';
     setTimeout(() => {
         document.getElementById('start-screen').classList.add('hidden');
-        document.getElementById('advanced-hud').classList.remove('hidden');
+        document.getElementById('split-huds').classList.remove('hidden');
+        
+        State.multiplayerMode = document.getElementById('mode-select').value === '2p';
+        
+        if (State.multiplayerMode && !renderer.xr.isPresenting) {
+            document.getElementById('advanced-hud-1').style.width = '50%';
+            document.getElementById('advanced-hud-1').style.borderRight = '2px solid #00eeff';
+            document.getElementById('advanced-hud-2').style.display = 'block';
+            State.players[1].rig.visible = true;
+        } else {
+            document.getElementById('advanced-hud-1').style.width = '100%';
+            document.getElementById('advanced-hud-1').style.borderRight = 'none';
+            document.getElementById('advanced-hud-2').style.display = 'none';
+            State.players[1].rig.visible = false;
+        }
     
         if (audioCtx && audioCtx.state === 'suspended' && State.audioEnabled) audioCtx.resume();
         
-        State.targetSpeed = 0; State.currentSpeed = State.baseSpeed * 1.5; 
-        State.rideProgress = 0.0; State.lastProgress = 0.0; State.score = 0; 
+        State.players.forEach(p => {
+            p.targetSpeed = 0; p.currentSpeed = State.baseSpeed * 1.5; 
+            p.rideProgress = 0.0; p.lastProgress = 0.0; p.score = 0; 
+        });
         flashScore();
         
         State.coinsData.forEach(c => { c.active = true; c.coin.visible = true; });
@@ -138,12 +224,25 @@ initUI({
     onMenu: () => {
         if(!State.isRiding) return;
         State.isRiding = false;
-        State.rideProgress = 0;
-        document.getElementById('advanced-hud').classList.add('hidden');
+        State.players.forEach(p => p.rideProgress = 0);
+        document.getElementById('split-huds').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('start-screen').style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         const bUI = document.getElementById('boost-alert'); if(bUI) bUI.classList.add('hidden');
+        const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
+    },
+    onReturnMenu: () => {
+        State.isRiding = false;
+        State.players.forEach(p => p.rideProgress = 0);
+        document.getElementById('split-huds').classList.add('hidden');
+        hideMatchResult();
+        document.getElementById('start-screen').classList.remove('hidden');
+        document.getElementById('start-screen').style.opacity = '1';
+        document.getElementById('menu-btn').style.display = 'none';
+        ['boost-alert-1', 'boost-alert-2'].forEach(id => {
+            const b = document.getElementById(id); if(b) b.classList.add('hidden');
+        });
         const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
     },
     onToggleAudio: () => {
@@ -191,10 +290,11 @@ function updateParticles(delta, time) {
     for(const anim of State.animatedObjects) { anim.update(time, delta); }
 
     if(State.weatherParticles) {
+        const pCam = State.players[0].cam || camera;
         if(State.currentWeather === 'rain') {
-            State.weatherParticles.position.set(camera.position.x, camera.position.y - ((time * 150) % 150), camera.position.z); 
+            State.weatherParticles.position.set(pCam.position.x, pCam.position.y - ((time * 150) % 150), pCam.position.z); 
         } else {
-            State.weatherParticles.position.copy(camera.position); 
+            State.weatherParticles.position.copy(pCam.position); 
             const pos = State.weatherParticles.geometry.attributes.position.array;
             for(let i=0; i<pos.length; i+=3) {
                 if(State.currentWeather === 'snow') {
@@ -224,15 +324,15 @@ function updateParticles(delta, time) {
     }
 }
 
-function processRideEvents(mapP, lastP, delta) {
+function processRideEvents(p, mapP, lastP, delta) {
     const crossedInterval = (rT) => (lastP <= rT && mapP >= rT) || (lastP > mapP && (rT >= lastP || rT <= mapP));
     let nextCoin = null;
 
     for (let r of State.boostRingsData) {
         if (r.active && crossedInterval(r.t)) {
             r.active = false; r.ring.visible = false;
-            State.currentSpeed += State.baseSpeed * 15.0; 
-            playBoostSound();
+            p.currentSpeed += State.baseSpeed * 15.0; 
+            playBoostSound(p.id - 1);
         }
     }
     
@@ -240,21 +340,28 @@ function processRideEvents(mapP, lastP, delta) {
         if (c.active) {
             if(!nextCoin && c.t > mapP) nextCoin = c;
             if (crossedInterval(c.t)) {
-                const laneDist = Math.abs(State.currentLaneOffset - (c.lane * 2.2));
+                const laneDist = Math.abs(p.currentLaneOffset - (c.lane * 2.2));
                 if (laneDist < 1.5) { 
                     c.active = false; c.coin.visible = false;
-                    const sx = window.innerWidth * 0.5; const sy = window.innerHeight * 0.6;
-                    showCoinScoreEffect(sx, sy, c.lane, () => { State.score += 100; flashScore(); });
-                    playCoinSound();
+                    const pIdx = p.id - 1;
+                    const baseW = window.innerWidth;
+                    const sx = (!State.multiplayerMode) ? baseW * 0.5 : (pIdx === 0 ? baseW * 0.25 : baseW * 0.75);
+                    const sy = window.innerHeight * 0.6;
+                    
+                    showCoinScoreEffect(sx, sy, pIdx, () => { 
+                        p.score += 100; 
+                        flashScore(pIdx); 
+                    });
+                    playCoinSound(pIdx);
                     
                     const pGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
                     const pMat = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
                     for(let pk=0; pk<15; pk++) {
-                        const p = new THREE.Mesh(pGeo, pMat);
-                        p.position.copy(c.coin.position);
+                        const pt = new THREE.Mesh(pGeo, pMat);
+                        pt.position.copy(c.coin.position);
                         _velVec.set((Math.random()-0.5)*30, Math.random()*25+5, (Math.random()-0.5)*30);
-                        scene.add(p);
-                        State.coinParticlesData.push({ mesh: p, vel: _velVec.clone(), life: 1.0 });
+                        scene.add(pt);
+                        State.coinParticlesData.push({ mesh: pt, vel: _velVec.clone(), life: 1.0 });
                     }
                 }
             }
@@ -266,9 +373,9 @@ function processRideEvents(mapP, lastP, delta) {
 
 function updateLightingAndSpeedLines(time, delta) {
     if (State.isRiding && currentDirLight && scene.background) {
-        // ONLY override lighting when riding (dynamically progress Day -> Sunset -> Night)
-        // Otherwise, leave the environment as set by the initial dropdown configuration!
-        const dayNight = Math.PI * (State.rideProgress / 2.0); 
+        // Average ride progress from P1 for world lighting progression
+        const avgP = State.players[0].rideProgress; 
+        const dayNight = Math.PI * (avgP / 2.0); 
         const sunH = Math.sin(dayNight);
         currentDirLight.position.set(Math.cos(dayNight) * 300, sunH * 200 - 20, 100);
         if (sunH > 0.3) {
@@ -280,14 +387,16 @@ function updateLightingAndSpeedLines(time, delta) {
         }
     }
 
-    if (speedLineGroup) {
-        let speedLineOpacity = 0;
-        if (State.isRiding && (State.isBoosting || State.currentSpeed > State.baseSpeed * 2.5)) {
-            speedLineOpacity = 0.8;
-            speedLineGroup.position.z = (time * 800) % 300; // loop through the local Z-space simulating rushing towards us
+    State.players.forEach(p => {
+        if (p.slg) {
+            let slOp = 0;
+            if (State.isRiding && (p.isBoosting || p.currentSpeed > State.baseSpeed * 2.5)) {
+                slOp = 0.8;
+                p.slg.position.z = (time * 800) % 300; 
+            }
+            p.slg.material.opacity = THREE.MathUtils.lerp(p.slg.material.opacity, slOp, delta * 8);
         }
-        speedLineGroup.material.opacity = THREE.MathUtils.lerp(speedLineGroup.material.opacity, speedLineOpacity, delta * 8);
-    }
+    });
 }
 
 function updateNPCs(delta, time) {
@@ -312,21 +421,22 @@ function updateNPCs(delta, time) {
         npc.rideProgress += npc.currentSpeed * delta * 60;
         const mapP = npc.rideProgress % 1.0;
 
-        // 3. Collision with Player
-        const pDist = Math.abs((State.rideProgress % 1.0) - mapP);
-        const shortDist = Math.min(pDist, 1.0 - pDist);
-        const distanceThreshold = 0.0016; // Roughly two cart lengths (scaled up)
-        if (shortDist < distanceThreshold) {
-            const laneDiff = Math.abs(State.currentLaneOffset - (npc.lane * 2.2));
-            if (laneDiff < 1.0) {
-                // COLLISION: Player loses speed, NPC gets bumped forward
-                State.currentSpeed *= 0.85; 
-                npc.currentSpeed += State.baseSpeed * 2.5; 
-                // Slight screen shake for player
-                if (camera.parent) camera.parent.position.y += (Math.random() - 0.5) * 0.1;
-                else camera.position.y += (Math.random() - 0.5) * 0.1;
+        // 3. Collision with Players
+        State.players.forEach(p => {
+            const pDist = Math.abs((p.rideProgress % 1.0) - mapP);
+            const shortDist = Math.min(pDist, 1.0 - pDist);
+            const distanceThreshold = 0.0016; // Roughly two cart lengths (scaled up)
+            if (shortDist < distanceThreshold) {
+                const laneDiff = Math.abs(p.currentLaneOffset - (npc.lane * 2.2));
+                if (laneDiff < 1.0) {
+                    // COLLISION: Player loses speed, NPC gets bumped forward
+                    p.currentSpeed *= 0.85; 
+                    npc.currentSpeed += State.baseSpeed * 2.5; 
+                    // Slight screen shake for player
+                    p.rig.position.y += (Math.random() - 0.5) * 0.1;
+                }
             }
-        }
+        });
 
         // 4. Update 3D Model
         const rawIndex = mapP * TRACK_SEGMENTS;
@@ -360,8 +470,8 @@ function updateNPCs(delta, time) {
     }
 }
 
-function updateCameraRig(delta, localLook, tangent, slopeImpact) {
-    const mappedProgress = State.rideProgress % 1.0;
+function updateCameraRig(p, delta, localLook, tangent, slopeImpact) {
+    const mappedProgress = p.rideProgress % 1.0;
     const rawIndex = mappedProgress * TRACK_SEGMENTS;
     const i = Math.floor(rawIndex);
     const nextIndex = (i + 1) % TRACK_SEGMENTS;
@@ -374,87 +484,91 @@ function updateCameraRig(delta, localLook, tangent, slopeImpact) {
     
     _camPosVec.addScaledVector(_normalVec, 1.2);
     
-    const targetOffset = State.playerLane * 2.2; 
-    State.currentLaneOffset = THREE.MathUtils.lerp(State.currentLaneOffset, targetOffset, delta * 12);
-    _camPosVec.addScaledVector(_binormalVec, State.currentLaneOffset); 
+    const targetOffset = p.lane * 2.2; 
+    p.currentLaneOffset = THREE.MathUtils.lerp(p.currentLaneOffset, targetOffset, delta * 12);
+    _camPosVec.addScaledVector(_binormalVec, p.currentLaneOffset); 
     
-    const laneDelta = targetOffset - State.currentLaneOffset;
-    cartGroup.rotation.z = -laneDelta * 0.08; 
-    cartGroup.rotation.y = -laneDelta * 0.05;
+    const laneDelta = targetOffset - p.currentLaneOffset;
+    if (p.cam.children[0]) {
+        p.cam.children[0].rotation.z = -laneDelta * 0.08; 
+        p.cam.children[0].rotation.y = -laneDelta * 0.05;
+    }
 
-    for (const w of State.wheelsData) w.rotation.x -= State.currentSpeed * delta * 1500;
+    for (const w of State.wheelsData) w.rotation.x -= p.currentSpeed * delta * 1500;
     
-    if (renderer.xr.isPresenting) {
-        playerRig.position.copy(_camPosVec);
+    if (renderer.xr.isPresenting && p.id === 1) {
+        p.rig.position.copy(_camPosVec);
         _lookPosVec.addScaledVector(_normalVec, 1.2);
-        _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
-        playerRig.up.copy(_normalVec);
-        playerRig.lookAt(_lookPosVec);
+        _lookPosVec.addScaledVector(_binormalVec, p.currentLaneOffset * 0.82);
+        p.rig.up.copy(_normalVec);
+        p.rig.lookAt(_lookPosVec);
     } else {
-        camera.position.copy(_camPosVec);
+        p.cam.position.copy(_camPosVec);
         _lookPosVec.addScaledVector(_normalVec, 1.2);
-        _lookPosVec.addScaledVector(_binormalVec, State.currentLaneOffset * 0.82);
-        camera.up.copy(_normalVec);
-        camera.lookAt(_lookPosVec);
+        _lookPosVec.addScaledVector(_binormalVec, p.currentLaneOffset * 0.82);
+        p.cam.up.copy(_normalVec);
+        p.cam.lookAt(_lookPosVec);
     }
     
-    const targetFov = 80 + (State.currentSpeed * 60000);
-    camera.fov = THREE.MathUtils.lerp(camera.fov, Math.min(130, targetFov), delta * 4);
-    camera.updateProjectionMatrix();
+    const targetFov = 80 + (p.currentSpeed * 60000);
+    p.cam.fov = THREE.MathUtils.lerp(p.cam.fov, Math.min(130, targetFov), delta * 4);
+    p.cam.updateProjectionMatrix();
 
-    updateEngineAudio(State.currentSpeed);
-    
-    localLook.copy(camera.worldToLocal(_lookPosVec.clone()));
+    localLook.copy(p.cam.worldToLocal(_lookPosVec.clone()));
 
-    const gForceRaw = 1.0 + (slopeImpact * 2.0) + ((State.targetSpeed - State.currentSpeed) * 500);
-    _vrGForce = Math.max(0, gForceRaw);
+    const gForceRaw = 1.0 + (slopeImpact * 2.0) + ((p.targetSpeed - p.currentSpeed) * 500);
+    p.vrGForce = Math.max(0, gForceRaw);
 }
 
-function updateHUDAndTelemetry(tangent, localLook, nextCoin) {
-    const isWarning = (_vrGForce > 2.5 || _vrGForce < 0.2);
+function updateHUDAndTelemetry(p, tangent, localLook, nextCoin, playerIndex) {
+    const isWarning = (p.vrGForce > 2.5 || p.vrGForce < 0.2);
     updateHUD({
-        displaySpeed: Math.floor(State.currentSpeed * 100000),
-        accelRatio: Math.min(100, (State.currentSpeed / (State.baseSpeed * 4)) * 100),
+        displaySpeed: Math.floor(p.currentSpeed * 100000),
+        accelRatio: Math.min(100, (p.currentSpeed / (State.baseSpeed * 4)) * 100),
         displayAlt: Math.floor(_camPosVec.y + 100),
         deg: Math.floor((Math.atan2(tangent.x, tangent.z) * 180 / Math.PI + 180)),
-        gForce: _vrGForce,
+        gForce: p.vrGForce,
         pitchDeg: Math.asin(Math.max(-1, Math.min(1, tangent.y))) * 180 / Math.PI,
         isTurnLeft: localLook.x < -0.15,
         isTurnRight: localLook.x > 0.15,
         isWarning: isWarning,
-        rank: State.currentRank || 1
-    });
+        rank: p.rank || 1
+    }, playerIndex);
 
-    updateMinimap(State.rideProgress % 1.0);
+    updateMinimap(playerIndex);
 
-    if (State.isDebug) {
+    if (State.isDebug && playerIndex === 0) {
         const activeCoins = State.coinsData.filter(c => c.active).length;
         updateDebugPanel(`
 === TELEMETRY ===<br>
-RIDE_T: ${(State.rideProgress % 1.0).toFixed(5)}<br>
-LANE_IDX: ${State.playerLane}<br>
-LANE_OFFSET: ${State.currentLaneOffset.toFixed(2)}<br>
-SPD: ${(State.currentSpeed * 60).toFixed(3)}<br>
+RIDE_T: ${(p.rideProgress % 1.0).toFixed(5)}<br>
+LANE_IDX: ${p.lane}<br>
+LANE_OFFSET: ${p.currentLaneOffset.toFixed(2)}<br>
+SPD: ${(p.currentSpeed * 60).toFixed(3)}<br>
 COINS_ALIVE: ${activeCoins}<br>
 =================<br>
 -- NEXT COIN --<br>
 C_TIME: ${nextCoin ? nextCoin.t.toFixed(4) : 'N/A'}<br>
 C_LANE: ${nextCoin ? nextCoin.lane : 'N/A'} (Offset: ${nextCoin ? (nextCoin.lane * 2.2).toFixed(2) : 'N/A'})<br>
-HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(State.currentLaneOffset - (nextCoin.lane * 2.2)) < 1.5) ? '#0f0' : '#f00'}">${nextCoin ? Math.abs(State.currentLaneOffset - (nextCoin.lane * 2.2)).toFixed(3) : 'N/A'}</span>
+HITBOX_DIST: <span style="color:${(nextCoin && Math.abs(p.currentLaneOffset - (nextCoin.lane * 2.2)) < 1.5) ? '#0f0' : '#f00'}">${nextCoin ? Math.abs(p.currentLaneOffset - (nextCoin.lane * 2.2)).toFixed(3) : 'N/A'}</span>
         `);
     }
 }
 
 function checkRideEnd() {
-    if (State.rideProgress >= 2) {
-        State.isRiding = false; State.rideProgress = 0;
-        document.getElementById('advanced-hud').classList.add('hidden');
-        document.getElementById('start-screen').classList.remove('hidden');
-        setTimeout(() => { document.getElementById('start-screen').style.opacity = '1'; }, 50);
-        const menuB = document.getElementById('menu-btn'); if (menuB) menuB.style.display = 'none';
-        const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
+    let allFinished = true;
+    const activePlayers = (State.multiplayerMode && !renderer.xr.isPresenting) ? State.players : [State.players[0]];
+    activePlayers.forEach(p => { if (p.rideProgress < 2) allFinished = false; });
+    
+    if (allFinished && State.isRiding) {
+        State.isRiding = false; 
+        const p1Score = State.players[0].score;
+        let p2Score = 0;
+        if (State.multiplayerMode && !renderer.xr.isPresenting) p2Score = State.players[1].score;
+        showMatchResult(p1Score, p2Score, State.multiplayerMode && !renderer.xr.isPresenting);
     }
 }
+
 
 function animate() {
     const delta = Math.min(0.05, clock.getDelta());
@@ -463,73 +577,126 @@ function animate() {
     updateParticles(delta, time);
 
     if (State.isRiding) {
-        State.lastProgress = State.rideProgress;
-        const bUI = document.getElementById('boost-alert');
+        if (menuCartObj) menuCartObj.cartGroup.visible = false;
         
-        if (State.isBoosting) {
-            State.targetSpeed = State.baseSpeed * 3.5;
-            bUI.classList.remove('hidden');
-            headLight.intensity = 60; 
-            headLight.color.setHex(State.currentTheme.accent[1] || 0xffffff);
-        } else {
-            State.targetSpeed = State.baseSpeed;
-            bUI.classList.add('hidden');
-            headLight.intensity = State.currentTheme.type === 'sky' ? 0 : 25; 
-            headLight.color.setHex(0xffffff);
-        }
+        const activePlayers = (State.multiplayerMode && !renderer.xr.isPresenting) ? State.players : [State.players[0]];
+        
+        activePlayers.forEach((p, idx) => {
+            p.lastProgress = p.rideProgress;
+            const bUI = document.getElementById('boost-alert-' + (idx+1));
+            
+            if (p.isBoosting) {
+                p.targetSpeed = State.baseSpeed * 3.5;
+                if(bUI) bUI.classList.remove('hidden');
+                p.hl.intensity = 60; 
+                p.hl.color.setHex(State.currentTheme.accent[1] || 0xffffff);
+            } else {
+                p.targetSpeed = State.baseSpeed;
+                if(bUI) bUI.classList.add('hidden');
+                p.hl.intensity = State.currentTheme.type === 'sky' ? 0 : 25; 
+                p.hl.color.setHex(0xffffff);
+            }
 
-        State.currentSpeed = THREE.MathUtils.lerp(State.currentSpeed, State.targetSpeed, delta * 3);
-        const tangent = State.curve.getTangentAt(State.rideProgress).normalize();
-        
-        const slopeImpact = -tangent.y; 
-        State.currentSpeed += slopeImpact * State.baseSpeed * 1.66 * delta; 
-        State.currentSpeed = Math.max(0.0001, Math.min(State.currentSpeed, State.baseSpeed * 6.5));
-        
-        State.rideProgress += State.currentSpeed * delta * 60; 
+            p.currentSpeed = THREE.MathUtils.lerp(p.currentSpeed, p.targetSpeed, delta * 3);
+            const tangent = State.curve.getTangentAt(p.rideProgress % 1.0).normalize();
+            
+            const slopeImpact = -tangent.y; 
+            p.currentSpeed += slopeImpact * State.baseSpeed * 1.66 * delta; 
+            p.currentSpeed = Math.max(0.0001, Math.min(p.currentSpeed, State.baseSpeed * 6.5));
+            
+            p.rideProgress += p.currentSpeed * delta * 60; 
 
-        const mapP = State.rideProgress % 1.0;
-        const lastP = State.lastProgress % 1.0;
-        
-        const nextCoin = processRideEvents(mapP, lastP, delta);
-        
-        const localLook = new THREE.Vector3();
-        updateCameraRig(delta, localLook, tangent, slopeImpact);
+            const mapP = p.rideProgress % 1.0;
+            const lastP = p.lastProgress % 1.0;
+            
+            const nextCoin = processRideEvents(p, mapP, lastP, delta);
+            
+            const localLook = new THREE.Vector3();
+            updateCameraRig(p, delta, localLook, tangent, slopeImpact);
+            
+            let currentRank = 1;
+            if (State.npcs) {
+                State.npcs.forEach(npc => {
+                    if (npc.rideProgress % 1.0 > p.rideProgress % 1.0) currentRank++;
+                });
+            }
+            State.players.forEach(op => {
+                if (op.id !== p.id && op.rideProgress % 1.0 > p.rideProgress % 1.0) currentRank++;
+            });
+            p.rank = currentRank;
+
+            updateHUDAndTelemetry(p, tangent, localLook, nextCoin, idx);
+        });
+
         updateNPCs(delta, time);
         updateLightingAndSpeedLines(time, delta);
-        
-        let currentRank = 1;
-        if (State.npcs) {
-            State.npcs.forEach(npc => {
-                if (npc.rideProgress % 1.0 > State.rideProgress % 1.0) currentRank++;
-            });
-        }
-        State.currentRank = currentRank;
-
-        updateHUDAndTelemetry(tangent, localLook, nextCoin);
-        
         checkRideEnd();
+        updateEngineAudio(State.players[0].currentSpeed, State.multiplayerMode && !renderer.xr.isPresenting ? State.players[1].currentSpeed : 0);
     } else {
-        if (renderer.xr.isPresenting) {
-            playerRig.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
-            playerRig.lookAt(0, 0, 0);
+         if (menuCartObj) {
+            menuCartObj.cartGroup.visible = true;
+            State.players[0].cam.updateMatrixWorld();
+            const cam = State.players[0].cam;
+            const camDir = new THREE.Vector3(0,0,-1).applyQuaternion(cam.quaternion);
+            const camLeft = new THREE.Vector3(-1,0,0).applyQuaternion(cam.quaternion);
+            const camUp = new THREE.Vector3(0,1,0).applyQuaternion(cam.quaternion);
+            
+            // Place it EXACTLY in front, 10 units away, slightly left
+            menuCartObj.cartGroup.position.copy(cam.position)
+                .add(camDir.multiplyScalar(10))
+                .add(camLeft.multiplyScalar(3.5))
+                .add(camUp.multiplyScalar(-1.5));
+                
+            menuCartObj.cartGroup.rotation.set(0.1, time * 0.3, 0.05);
+            menuCartObj.wheelsData.forEach(w => w.rotation.x += delta * 15);
+         }
+
+         if (renderer.xr.isPresenting) {
+            State.players[0].rig.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
+            State.players[0].rig.lookAt(0, 0, 0);
         } else {
-            camera.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
-            camera.lookAt(0, 0, 0);
+            State.players[0].cam.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
+            State.players[0].cam.lookAt(0, 0, 0);
         }
         updateLightingAndSpeedLines(time, delta);
     }
     
     if (renderer.xr.isPresenting) {
         updateVrHud({
-            speed:     Math.floor(State.currentSpeed * 100000),
-            score:     State.score,
-            gForce:    _vrGForce,
-            isBoosting: State.isBoosting,
-            rank:      State.currentRank || 1
+            speed:     Math.floor(State.players[0].currentSpeed * 100000),
+            score:     State.players[0].score,
+            gForce:    State.players[0].vrGForce,
+            isBoosting: State.players[0].isBoosting,
+            rank:      State.players[0].rank || 1
         });
         renderer.render(scene, camera);
     } else {
-        composer.render();
+        if(State.isRiding && State.multiplayerMode) {
+            renderer.autoClear = false;
+            renderer.clear();
+            renderer.setScissorTest(true);
+            const w = window.innerWidth, h = window.innerHeight;
+
+            renderer.setViewport(0, 0, w/2, h);
+            renderer.setScissor(0, 0, w/2, h);
+            State.players[0].cam.aspect = (w/2) / h; 
+            State.players[0].cam.updateProjectionMatrix();
+            renderer.render(scene, State.players[0].cam);
+
+            renderer.setViewport(w/2, 0, w/2, h);
+            renderer.setScissor(w/2, 0, w/2, h);
+            State.players[1].cam.aspect = (w/2) / h; 
+            State.players[1].cam.updateProjectionMatrix();
+            renderer.render(scene, State.players[1].cam);
+            
+            renderer.setScissorTest(false);
+        } else {
+            renderer.autoClear = true;
+            renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            State.players[0].cam.aspect = window.innerWidth / window.innerHeight;
+            State.players[0].cam.updateProjectionMatrix();
+            composer.render();
+        }
     }
 }
 

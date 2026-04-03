@@ -16,12 +16,8 @@ export const State = {
     targetSpeed: 0,
     isBoosting: false,
     
-    // Player Stats & Position
-    score: 0,
-    playerLane: 1, // 1 = right, -1 = left
-    currentLaneOffset: 0,
-
-    // Track Data (Populated by trackGenerator)
+    // Player Stats & Position (Now an array for split-screen)
+    players: [],
     curve: null,
     frames: null,
     animatedObjects: [],
