@@ -115,9 +115,9 @@ p2.cartGroup.position.set(0, -0.65, -1.0);
 
 // --- Menu Cart Model (3D display on start screen) ---
 const menuCartObj = createCartModel(0x00ffcc, true, 'MENU');
-camera.add(menuCartObj.cartGroup);
-menuCartObj.cartGroup.scale.setScalar(3.5); // Make it undeniably massive
-menuCartObj.cartGroup.position.set(-2.5, -1.5, -10); // Directly in local view space
+scene.add(menuCartObj.cartGroup);
+menuCartObj.cartGroup.scale.setScalar(20.0); // Make it undeniably massive in the center of the world
+menuCartObj.cartGroup.position.set(0, 40, 0); // Directly in global view center
 
 // Spotlight (Only P1 needs it for VR compatibility, P2 splitscreen gets it naturally from global lights or we duplicate if too dark. Let's duplicate)
 const headLight = new THREE.SpotLight(0xffffff, 20); 
@@ -636,7 +636,9 @@ function animate() {
     } else {
          if (menuCartObj) {
             menuCartObj.cartGroup.visible = true;
-            menuCartObj.cartGroup.rotation.set(0.1, time * 0.3, 0.05);
+            menuCartObj.cartGroup.rotation.y = time * 0.5; // Showcase rotation
+            menuCartObj.cartGroup.rotation.z = Math.sin(time) * 0.1; // Gentle floating tilt
+            menuCartObj.cartGroup.position.y = 40 + Math.sin(time * 2.0) * 2; // Gentle floating bob
             menuCartObj.wheelsData.forEach(w => w.rotation.x += delta * 15);
          }
 
