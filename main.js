@@ -253,6 +253,7 @@ window.startGame = function() {
     }
 
     document.getElementById('start-screen').style.opacity = '0';
+    document.getElementById('main-title').style.opacity = '0';
     setTimeout(() => {
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('split-huds').classList.remove('hidden');
@@ -296,6 +297,7 @@ initUI({
         document.getElementById('split-huds').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('start-screen').style.opacity = '1';
+        document.getElementById('main-title').style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         const bUI = document.getElementById('boost-alert'); if(bUI) bUI.classList.add('hidden');
         const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
@@ -307,6 +309,7 @@ initUI({
         hideMatchResult();
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('start-screen').style.opacity = '1';
+        document.getElementById('main-title').style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         ['boost-alert-1', 'boost-alert-2'].forEach(id => {
             const b = document.getElementById(id); if(b) b.classList.add('hidden');
