@@ -113,11 +113,76 @@ camera2.add(p2.cartGroup);
 p2.cartGroup.scale.setScalar(0.675 * 0.8); 
 p2.cartGroup.position.set(0, -0.65, -1.0);  
 
-// --- Menu Cart Model (3D display on start screen) ---
-const menuCartObj = createCartModel(0x00ffcc, true, 'MENU');
-scene.add(menuCartObj.cartGroup);
-menuCartObj.cartGroup.scale.setScalar(20.0); // Make it undeniably massive in the center of the world
-menuCartObj.cartGroup.position.set(0, 40, 0); // Directly in global view center
+// --- Menu Cart Showcase (INDEPENDENT renderer, scene, camera) ---
+// This completely avoids all main scene conflicts (buildScene clearing, lighting, etc.)
+const showcaseCanvas = document.getElementById('cart-showcase');
+const showcaseScene = new THREE.Scene();
+const showcaseCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+showcaseCamera.position.set(5, 3, 8);
+showcaseCamera.lookAt(0, 0, 0);
+
+const showcaseRenderer = new THREE.WebGLRenderer({ canvas: showcaseCanvas, alpha: true, antialias: true });
+showcaseRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+showcaseRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+showcaseRenderer.toneMappingExposure = 1.5;
+
+// Showcase lighting - completely self-contained
+const scLight1 = new THREE.DirectionalLight(0xffffff, 3);
+scLight1.position.set(5, 10, 7);
+showcaseScene.add(scLight1);
+const scLight2 = new THREE.DirectionalLight(0x00ffcc, 2);
+scLight2.position.set(-5, 5, -3);
+showcaseScene.add(scLight2);
+const scAmbient = new THREE.AmbientLight(0x334455, 1.5);
+showcaseScene.add(scAmbient);
+// Rim light for dramatic effect
+const scRim = new THREE.PointLight(0xff00aa, 4, 30);
+scRim.position.set(-3, 2, -5);
+showcaseScene.add(scRim);
+
+// Create the showcase cart model
+const showcaseCart = createCartModel(0x00ffcc, true, '★');
+showcaseScene.add(showcaseCart.cartGroup);
+showcaseCart.cartGroup.scale.setScalar(1.5);
+showcaseCart.cartGroup.position.set(0, -0.5, 0);
+
+// Remove the number tag sprite from the showcase (it shows "No.★" which looks odd)
+showcaseCart.cartGroup.children.forEach(child => {
+    if (child.isSprite) child.visible = false;
+});
+
+let showcaseActive = true;
+const showcaseClock = new THREE.Clock();
+
+function updateShowcase() {
+    if (!showcaseActive) return;
+    const dt = showcaseClock.getDelta();
+    const t = showcaseClock.getElapsedTime();
+    
+    // Slow turntable rotation
+    showcaseCart.cartGroup.rotation.y = t * 0.4;
+    showcaseCart.cartGroup.rotation.z = Math.sin(t * 1.5) * 0.05;
+    showcaseCart.cartGroup.position.y = -0.5 + Math.sin(t * 2) * 0.15;
+    
+    // Spin wheels
+    showcaseCart.wheelsData.forEach(w => w.rotation.x += dt * 8);
+    
+    // Resize canvas to match its CSS display size
+    const rect = showcaseCanvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    if (showcaseCanvas.width !== w || showcaseCanvas.height !== h) {
+        showcaseRenderer.setSize(w, h, false);
+        showcaseCamera.aspect = w / h;
+        showcaseCamera.updateProjectionMatrix();
+    }
+    
+    showcaseRenderer.render(showcaseScene, showcaseCamera);
+}
+
+// Remove old menuCartObj references - no longer needed
+let menuCartObj = null;
+function ensureMenuCart() { /* no-op: showcase is independent */ }
 
 // Spotlight (Only P1 needs it for VR compatibility, P2 splitscreen gets it naturally from global lights or we duplicate if too dark. Let's duplicate)
 const headLight = new THREE.SpotLight(0xffffff, 20); 
@@ -173,7 +238,9 @@ State.players[1].hl = headLight2;
 window.startGame = function() {
     if (State.isRiding) return;
     State.isRiding = true;
-    
+    // Hide the independent showcase renderer
+    showcaseActive = false;
+    showcaseCanvas.style.display = 'none';
     State.baseSpeed = parseFloat(document.getElementById('speed-select').value) || 0.0007;
 
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -263,9 +330,11 @@ initUI({
         const sSelect = document.getElementById('saved-tracks-select');
         if(sSelect) sSelect.value = ""; 
         buildScene(scene, camera, t, tm, w);
+        ensureMenuCart();
     },
     onLoadTrack: (conf) => {
         buildScene(scene, camera, conf.theme, conf.time, conf.weather, conf.seed);
+        ensureMenuCart();
     }
 });
 
@@ -274,6 +343,7 @@ setupXRInput(renderer, { onStart: window.startGame });
 
 // Initial Build
 buildScene(scene, camera, 'underwater', 'day', 'clear');
+ensureMenuCart(); // Create menu cart AFTER buildScene so it doesn't get cleared
 initVrHud(camera);
 
 // --- Global Animation Logic & Physics ---
@@ -634,13 +704,10 @@ function animate() {
         checkRideEnd();
         updateEngineAudio(State.players[0].currentSpeed, State.multiplayerMode && !renderer.xr.isPresenting ? State.players[1].currentSpeed : 0);
     } else {
-         if (menuCartObj) {
-            menuCartObj.cartGroup.visible = true;
-            menuCartObj.cartGroup.rotation.y = time * 0.5; // Showcase rotation
-            menuCartObj.cartGroup.rotation.z = Math.sin(time) * 0.1; // Gentle floating tilt
-            menuCartObj.cartGroup.position.y = 40 + Math.sin(time * 2.0) * 2; // Gentle floating bob
-            menuCartObj.wheelsData.forEach(w => w.rotation.x += delta * 15);
-         }
+         // Update the independent showcase renderer (separate canvas)
+         showcaseActive = true;
+         showcaseCanvas.style.display = 'block';
+         updateShowcase();
 
          if (renderer.xr.isPresenting) {
             State.players[0].rig.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
