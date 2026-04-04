@@ -878,17 +878,68 @@ export function createCartModel(bodyColorHex, isNPC = false, driverNum = "01") {
     glassMesh.position.set(0, 0.52 + 0.07, -0.2); // Shift glass up slightly to match thicker body
     cartGroup.add(glassMesh);
 
-    // Driver Model
+    // Driver Model Minecraft Style Animal
     const driverMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 });
-    const capMat = new THREE.MeshStandardMaterial({ color: bodyColorHex, roughness: 0.5 });
-    const headGeo = new THREE.SphereGeometry(0.18, 16, 16);
-    const headMesh = new THREE.Mesh(headGeo, capMat);
-    headMesh.position.set(0, 0.72 + 0.07, -0.3); // Sitting in the glass cabin
-    cartGroup.add(headMesh);
-    const bodyDriverGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.3, 16);
+    const driverGroup = new THREE.Group();
+    
+    // Body (Blocky)
+    const bodyDriverGeo = new THREE.BoxGeometry(0.25, 0.3, 0.25);
     const bodyDriverMesh = new THREE.Mesh(bodyDriverGeo, driverMat);
     bodyDriverMesh.position.set(0, 0.5 + 0.07, -0.3);
-    cartGroup.add(bodyDriverMesh);
+    driverGroup.add(bodyDriverMesh);
+
+    // Random Minecraft Animal Head
+    const headGroup = new THREE.Group();
+    const animalTypes = ['pig', 'cow', 'chicken', 'fox', 'creeper'];
+    const rs = isNPC ? parseInt(driverNum) : Math.floor(Math.random() * 100);
+    const animal = animalTypes[rs % animalTypes.length] || 'pig';
+    
+    // Base head block
+    const hSize = 0.26;
+    const baseGeo = new THREE.BoxGeometry(hSize, hSize, hSize);
+    let headColor = 0xffffff;
+    if(animal === 'pig') headColor = 0xffaadd;
+    else if(animal === 'cow') headColor = 0xdddddd;
+    else if(animal === 'chicken') headColor = 0xffffff;
+    else if(animal === 'fox') headColor = 0xff7700;
+    else if(animal === 'creeper') headColor = 0x22cc22;
+    
+    const baseMat = new THREE.MeshStandardMaterial({ color: headColor, roughness: 1.0 });
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    headGroup.add(baseMesh);
+    
+    // Animal Details
+    if (animal === 'pig') {
+        const snout = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.04), new THREE.MeshStandardMaterial({ color: 0xff88cc }));
+        snout.position.set(0, -0.04, hSize/2 + 0.02); headGroup.add(snout);
+    } else if (animal === 'cow') {
+        const snout = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.04), new THREE.MeshStandardMaterial({ color: 0x442211 }));
+        snout.position.set(0, -0.04, hSize/2 + 0.02); headGroup.add(snout);
+        const hornMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+        const h1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.04), hornMat); h1.position.set(0.1, 0.15, hSize/4); headGroup.add(h1);
+        const h2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.04), hornMat); h2.position.set(-0.1, 0.15, hSize/4); headGroup.add(h2);
+    } else if (animal === 'chicken') {
+        const beak = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.08), new THREE.MeshStandardMaterial({ color: 0xffff00 }));
+        beak.position.set(0, 0, hSize/2 + 0.04); headGroup.add(beak);
+        const wattle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.04), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        wattle.position.set(0, -0.06, hSize/2 + 0.04); headGroup.add(wattle);
+    } else if (animal === 'fox') {
+        const snout = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.1), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        snout.position.set(0, -0.04, hSize/2 + 0.05); headGroup.add(snout);
+        const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.04), baseMat); e1.position.set(0.08, 0.15, 0); headGroup.add(e1);
+        const e2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.04), baseMat); e2.position.set(-0.08, 0.15, 0); headGroup.add(e2);
+    } else if (animal === 'creeper') {
+        const faceMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), faceMat); e1.position.set(0.06, 0.04, hSize/2 + 0.01); headGroup.add(e1);
+        const e2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), faceMat); e2.position.set(-0.06, 0.04, hSize/2 + 0.01); headGroup.add(e2);
+        const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), faceMat); m1.position.set(0, -0.04, hSize/2 + 0.01); headGroup.add(m1);
+        const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.02), faceMat); m2.position.set(0.04, -0.08, hSize/2 + 0.01); headGroup.add(m2);
+        const m3 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.02), faceMat); m3.position.set(-0.04, -0.08, hSize/2 + 0.01); headGroup.add(m3);
+    }
+
+    headGroup.position.set(0, 0.72 + 0.07, -0.3); // Sitting in the glass cabin
+    driverGroup.add(headGroup);
+    cartGroup.add(driverGroup);
 
     // Number Tag Sprite
     const canvasTag = document.createElement('canvas');

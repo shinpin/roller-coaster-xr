@@ -42,22 +42,35 @@
             <button id="debug-btn" class="mini-btn">[D] DEBUG</button>
             <button id="menu-btn" class="mini-btn hidden-btn">⮌ MENU</button>
         </div>
-
-        <!-- 3D Cart Showcase (independent renderer, outside start-screen for correct positioning) -->
-        <canvas id="cart-showcase"></canvas>
         
+        <!-- Version Info (Top Right) -->
+        <div id="version-info" class="version-overlay" style="position: fixed; top: 15px; right: 20px; z-index: 2000; text-align: right; pointer-events: none;">
+            <div class="version-title" style="color: #0ff; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px #0ff;">v1.0.1 Beta</div>
+            <div class="version-author" style="color: #aaa; font-size: 0.8rem; margin-top: 2px;">FLYCHAIR LAB | CREATOR: BEN</div>
+            <div class="version-date" style="color: #888; font-size: 0.8rem;">2026.04.03</div>
+        </div>
+
         <!-- Game Title (fixed position, above showcase cart) -->
         <h1 id="main-title" class="main-title">Neon Coaster XR</h1>
 
-        <div id="start-screen">
-            <!-- Version & Creator Watermark in Menu -->
-            <div id="version-info" class="version-overlay">
-                <div class="version-title">v1.0.1 Beta</div>
-                <div class="version-author">FLYCHAIR LAB | CREATOR: BEN</div>
-                <div class="version-date">2026.04.03</div>
+        <!-- Player Profile (Boxes 3 & 4) -->
+        <div id="player-profile" style="position: fixed; left: 5%; top: 20%; z-index: 12; display: flex; gap: 20px; align-items: flex-end; transition: opacity 0.5s;">
+            <!-- Box 3 -->
+            <div id="profile-avatar" style="width: 120px; height: 120px; background: rgba(0,0,0,0.7); border: 2px solid #0ff; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 4rem; box-shadow: 0 0 15px rgba(0,243,255,0.3);">
+                <!-- Emoji or canvas will be injected here -->
             </div>
-            
+            <!-- Box 4 -->
+            <div id="profile-info" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); border: 1px solid #ff00ea; border-radius: 10px; padding: 15px; min-width: 220px; box-shadow: 0 0 15px rgba(255,0,234,0.2);">
+                <div id="profile-name" style="font-size: 1.5rem; font-weight: bold; color: #00f3ff; margin-bottom: 5px; text-shadow: 0 0 8px #0ff;">-</div>
+                <div style="font-size: 1.1rem; color: #aaa;">ID: <span id="profile-id" style="color: #ddd;">-</span></div>
+                <div style="font-size: 1.2rem; color: #ff00ea; margin-top: 5px; font-weight: bold;">SCORE: <span id="profile-score" style="color: #fff">-</span> pts</div>
+            </div>
+        </div>
 
+        <!-- 3D Cart Showcase (independent renderer, outside start-screen for correct positioning) -->
+        <canvas id="cart-showcase"></canvas>
+
+        <div id="start-screen">
 
             <div class="glass-panel" style="width: 380px; padding: 25px; margin-bottom: 15px; z-index: 1;">
                 <div class="options-grid" style="display: flex; flex-direction: column; gap: 15px; margin: 0;">

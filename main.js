@@ -143,8 +143,9 @@ showcaseScene.add(scRim);
 // Create the showcase cart model
 const showcaseCart = createCartModel(0x00ffcc, true, '★');
 showcaseScene.add(showcaseCart.cartGroup);
-showcaseCart.cartGroup.scale.setScalar(1.5);
-showcaseCart.cartGroup.position.set(0, -0.5, 0);
+    showcaseScene.add(showcaseCart.cartGroup);
+    showcaseCart.cartGroup.scale.setScalar(3.0); // 2x larger
+    showcaseCart.cartGroup.position.set(0, -1.2, 0); // Moved down
 
 // Remove the number tag sprite from the showcase (it shows "No.★" which looks odd)
 showcaseCart.cartGroup.children.forEach(child => {
@@ -159,10 +160,10 @@ function updateShowcase() {
     const dt = showcaseClock.getDelta();
     const t = showcaseClock.getElapsedTime();
     
-    // Slow turntable rotation
-    showcaseCart.cartGroup.rotation.y = t * 0.4;
+    // Slow turntable rotation (1/5th speed)
+    showcaseCart.cartGroup.rotation.y = t * 0.08;
     showcaseCart.cartGroup.rotation.z = Math.sin(t * 1.5) * 0.05;
-    showcaseCart.cartGroup.position.y = -0.5 + Math.sin(t * 2) * 0.15;
+    showcaseCart.cartGroup.position.y = -1.2 + Math.sin(t * 2) * 0.15;
     
     // Spin wheels
     showcaseCart.wheelsData.forEach(w => w.rotation.x += dt * 8);
@@ -179,6 +180,22 @@ function updateShowcase() {
     
     showcaseRenderer.render(showcaseScene, showcaseCamera);
 }
+
+// --- Initialize Random Player Profile ---
+function initPlayerProfile() {
+    const names = ["NeonRider", "CyberPunk", "RetroGhost", "SpeedDemon", "VoxelFox", "ByteNinja", "GridWalker"];
+    const avatars = ["🦊", "🐷", "🐮", "🐔", "🦄", "🐍", "🦇", "🐙"];
+    const nameEl = document.getElementById('profile-name');
+    const idEl = document.getElementById('profile-id');
+    const scoreEl = document.getElementById('profile-score');
+    const avatarEl = document.getElementById('profile-avatar');
+    
+    if (nameEl) nameEl.innerText = names[Math.floor(Math.random() * names.length)];
+    if (idEl) idEl.innerText = "#" + Math.floor(1000 + Math.random() * 9000);
+    if (scoreEl) scoreEl.innerText = Math.floor(5000 + Math.random() * 95000);
+    if (avatarEl) avatarEl.innerText = avatars[Math.floor(Math.random() * avatars.length)];
+}
+initPlayerProfile();
 
 // Remove old menuCartObj references - no longer needed
 let menuCartObj = null;
@@ -254,6 +271,8 @@ window.startGame = function() {
 
     document.getElementById('start-screen').style.opacity = '0';
     document.getElementById('main-title').style.opacity = '0';
+    document.getElementById('player-profile').style.opacity = '0';
+    document.getElementById('version-info').style.opacity = '0';
     setTimeout(() => {
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('split-huds').classList.remove('hidden');
@@ -298,6 +317,8 @@ initUI({
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('start-screen').style.opacity = '1';
         document.getElementById('main-title').style.opacity = '1';
+        document.getElementById('player-profile').style.opacity = '1';
+        document.getElementById('version-info').style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         const bUI = document.getElementById('boost-alert'); if(bUI) bUI.classList.add('hidden');
         const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
@@ -310,6 +331,8 @@ initUI({
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('start-screen').style.opacity = '1';
         document.getElementById('main-title').style.opacity = '1';
+        document.getElementById('player-profile').style.opacity = '1';
+        document.getElementById('version-info').style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         ['boost-alert-1', 'boost-alert-2'].forEach(id => {
             const b = document.getElementById(id); if(b) b.classList.add('hidden');
