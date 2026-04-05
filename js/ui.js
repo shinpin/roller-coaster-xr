@@ -23,10 +23,11 @@ export function initUI(callbacks) {
             comboUI: document.getElementById(`combo-ui-${i}`),
             speedOverlay: document.getElementById(`speed-overlay-${i}`),
             collisionOverlay: document.getElementById(`collision-overlay-${i}`),
+            leaderboardUI: document.getElementById(`leaderboard-${i}`),
             envVal: document.getElementById(`env-val-${i}`),
             rankVal: document.getElementById(`rank-val-${i}`)
         });
-        lastStateTexts[i-1] = { speed: '', alt: '', head: '', g: '', pitch: '', rank: 1, combo: '' };
+        lastStateTexts[i-1] = { speed: '', alt: '', head: '', g: '', pitch: '', rank: 1, combo: '', racersStr: '' };
     }
 
     // Attach Event Listeners
@@ -183,6 +184,25 @@ export function updateHUD(data, playerIndex) {
     if (UI.collisionOverlay) {
         if (data.isColliding) UI.collisionOverlay.classList.add('active');
         else UI.collisionOverlay.classList.remove('active');
+    }
+
+    // Leaderboard
+    if (data.racers && UI.leaderboardUI) {
+        const racersStr = data.racers.map(r => `${r.name}_${r.score}_${r.isMe}`).join('|');
+        if (racersStr !== last.racersStr) {
+            let html = '<div style="text-align: center; color: #00ffff; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid rgba(0,255,255,0.3); padding-bottom: 5px;">RACE RANKING</div>';
+            data.racers.forEach((r, idx) => {
+                const color = r.isMe ? '#ff4444' : '#aaffaa';
+                const fW = r.isMe ? '900' : 'normal';
+                const fontSize = r.isMe ? '1.3rem' : '1.1rem';
+                html += `<div style="color: ${color}; font-weight: ${fW}; font-size: ${fontSize}; display: flex; justify-content: space-between; gap: 20px;">
+                    <span>${idx + 1}. ${r.icon} ${r.name}</span>
+                    <span>${r.score}</span>
+                </div>`;
+            });
+            UI.leaderboardUI.innerHTML = html;
+            last.racersStr = racersStr;
+        }
     }
 }
 

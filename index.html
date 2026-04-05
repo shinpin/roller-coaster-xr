@@ -172,7 +172,13 @@
                     <div class="speed-lines-layer"></div>
                 </div>
                 <div id="collision-overlay-1" class="collision-overlay"></div>
-                <div id="score-ui-1" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 250px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5); z-index: 200;">SCORE: <span id="score-val-1" style="display:inline-block; transform-origin: center; color: gold; text-shadow: 0 0 15px gold; font-weight: 900;">0</span><br><span id="combo-ui-1" class="hidden" style="display: block; font-size: 1.2rem; color: #ff5500; font-weight: bold; text-shadow: 0 0 10px #ff5500; margin: -5px 0 5px 0;"></span><span style="font-size: 0.7em; color: #aaffaa;">RANK: <span id="rank-val-1">1</span>/4</span></div>
+                <div id="leaderboard-1" style="position: absolute; top: 20px; right: 20px; z-index: 200; background: rgba(0,0,10,0.7); padding: 15px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; color: white; display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 1.2rem; box-shadow: 0 0 15px rgba(0,0,0,0.8); min-width: 180px;"></div>
+                <div id="score-ui-1" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 280px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 15px;">
+                        <span>SCORE:</span><span id="score-val-1" style="display:inline-block; transform-origin: center; color: gold; text-shadow: 0 0 15px gold; font-weight: 900; font-size: 2.5rem;">0</span>
+                    </div>
+                    <span id="combo-ui-1" class="hidden" style="display: block; font-size: 1.2rem; color: #ff5500; font-weight: bold; text-shadow: 0 0 10px #ff5500; margin-top: 5px;"></span>
+                </div>
                 <canvas id="minimap-1" width="150" height="150" style="position: absolute; bottom: 10px; right: 20px; z-index: 200;"></canvas>
                 <div id="crosshair-1" class="crosshair" style="z-index: 100;">
                     <div class="ch-line ch-horiz"></div><div class="ch-line ch-vert"></div>
@@ -203,7 +209,13 @@
                     <div class="speed-lines-layer"></div>
                 </div>
                 <div id="collision-overlay-2" class="collision-overlay"></div>
-                <div id="score-ui-2" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 250px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5); z-index: 200;">SCORE: <span id="score-val-2" style="display:inline-block; transform-origin: center; color: gold; text-shadow: 0 0 15px gold; font-weight: 900;">0</span><br><span id="combo-ui-2" class="hidden" style="display: block; font-size: 1.2rem; color: #ff5500; font-weight: bold; text-shadow: 0 0 10px #ff5500; margin: -5px 0 5px 0;"></span><span style="font-size: 0.7em; color: #aaffaa;">RANK: <span id="rank-val-2">1</span>/4</span></div>
+                <div id="leaderboard-2" style="position: absolute; top: 20px; right: 20px; z-index: 200; background: rgba(0,0,10,0.7); padding: 15px; border: 1px solid rgba(0,255,255,0.3); border-radius: 8px; color: white; display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 1.2rem; box-shadow: 0 0 15px rgba(0,0,0,0.8); min-width: 180px;"></div>
+                <div id="score-ui-2" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 280px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 15px;">
+                        <span>SCORE:</span><span id="score-val-2" style="display:inline-block; transform-origin: center; color: gold; text-shadow: 0 0 15px gold; font-weight: 900; font-size: 2.5rem;">0</span>
+                    </div>
+                    <span id="combo-ui-2" class="hidden" style="display: block; font-size: 1.2rem; color: #ff5500; font-weight: bold; text-shadow: 0 0 10px #ff5500; margin-top: 5px;"></span>
+                </div>
                 <canvas id="minimap-2" width="150" height="150" style="position: absolute; bottom: 10px; right: 20px; z-index: 200;"></canvas>
                 <div id="crosshair-2" class="crosshair" style="z-index: 100;">
                     <div class="ch-line ch-horiz"></div><div class="ch-line ch-vert"></div>
