@@ -104,14 +104,14 @@ const { cartGroup, wheelsData } = createCartModel(0xdd1111, false, '01');
 State.wheelsData.push(...wheelsData);
 camera.add(cartGroup);
 cartGroup.scale.setScalar(0.675 * 0.8); 
-cartGroup.position.set(0, -0.85, -1.0);  
+cartGroup.position.set(0, -1.0, -1.0);  
 
 // --- Player 2 Cart Model ---
 const p2 = createCartModel(0x1111dd, false, '02');
 State.wheelsData.push(...p2.wheelsData);
 camera2.add(p2.cartGroup);
 p2.cartGroup.scale.setScalar(0.675 * 0.8); 
-p2.cartGroup.position.set(0, -0.85, -1.0);  
+p2.cartGroup.position.set(0, -1.0, -1.0);  
 
 // --- Menu Cart Showcase (INDEPENDENT renderer, scene, camera) ---
 // This completely avoids all main scene conflicts (buildScene clearing, lighting, etc.)
@@ -582,7 +582,7 @@ function updateNPCs(delta, time) {
         const cPos = new THREE.Vector3().lerpVectors(State.curve.getPointAt(idx / TRACK_SEGMENTS), State.curve.getPointAt(nextIdx / TRACK_SEGMENTS), weight);
         const lPos = State.curve.getPointAt((mapP + 0.005) % 1.0);
 
-        cPos.addScaledVector(nVec, 1.2);
+        cPos.addScaledVector(nVec, 0.25);
         
         const targetOffset = npc.lane * 2.2;
         npc.laneOffset = THREE.MathUtils.lerp(npc.laneOffset, targetOffset, delta * 6);
@@ -595,7 +595,7 @@ function updateNPCs(delta, time) {
         for (const w of npc.wheelsData) w.rotation.x -= npc.currentSpeed * delta * 1500;
 
         npc.cartGroup.position.copy(cPos);
-        lPos.addScaledVector(nVec, 1.2);
+        lPos.addScaledVector(nVec, 0.25);
         lPos.addScaledVector(bVec, npc.laneOffset);
         
         npc.cartGroup.up.copy(nVec);
@@ -655,6 +655,13 @@ function updateCameraRig(p, delta, localLook, tangent, slopeImpact) {
 
 function updateHUDAndTelemetry(p, tangent, localLook, nextCoin, playerIndex, time) {
     const isWarning = (p.vrGForce > 2.5 || p.vrGForce < 0.2);
+    
+    // Build Leaderboard racers array
+    const racers = [];
+    State.players.forEach(pl => racers.push({ isMe: pl.id === p.id, name: `P${pl.id}`, score: pl.score, progress: pl.rideProgress, icon: '🏎️' }));
+    State.npcs.forEach((n, idx) => racers.push({ isMe: false, name: `NPC${idx+1}`, score: Math.floor(n.rideProgress * 50), progress: n.rideProgress, icon: '🚗' }));
+    racers.sort((a, b) => b.progress - a.progress);
+
     updateHUD({
         displaySpeed: Math.floor(p.currentSpeed * 100000),
         accelRatio: Math.min(100, (p.currentSpeed / (State.baseSpeed * 4)) * 100),
@@ -668,7 +675,8 @@ function updateHUDAndTelemetry(p, tangent, localLook, nextCoin, playerIndex, tim
         rank: p.rank || 1,
         isBoosting: p.isBoosting,
         isColliding: time < (p.collisionFlashUntil || 0),
-        comboText: p.comboText || ''
+        comboText: p.comboText || '',
+        racers: racers
     }, playerIndex);
 
     updateMinimap(playerIndex);

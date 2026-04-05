@@ -534,15 +534,15 @@ function generateTrack(scene) {
     const vertices = [];
     const uvs = [];
     const indices = [];
-    const hw = 2.8; 
-    const ht = 0.2; 
+    const hw = 2.6; 
+    const ht = 0.1; 
     
     for (let i = 0; i <= TRACK_SEGMENTS; i++) {
         const u = i / TRACK_SEGMENTS;
         const pt = State.curve.getPointAt(u);
         const normal = State.frames.normals[i];
         const right = State.frames.binormals[i];
-        const trackCenter = pt.clone().addScaledVector(normal, -0.15);
+        const trackCenter = pt.clone().addScaledVector(normal, -0.25);
         
         const tr = trackCenter.clone().addScaledVector(right, hw).addScaledVector(normal, ht);
         const tl = trackCenter.clone().addScaledVector(right, -hw).addScaledVector(normal, ht);
@@ -613,8 +613,8 @@ function generateTrack(scene) {
     scene.add(turnsGroup);
 
     let lastArrowSpawn = -1000;
-    const sleeperCount = TRACK_POINTS * 4;
-    const sleeperGeo = new THREE.BoxGeometry(6.8, 0.3, 0.8); 
+    const sleeperCount = Math.floor(TRACK_POINTS * 1.5);
+    const sleeperGeo = new THREE.BoxGeometry(6.6, 0.4, 1.8); 
     const sleeperMat = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 0.3, metalness: 0.6 });
     const sleepersGroup = new THREE.InstancedMesh(sleeperGeo, sleeperMat, sleeperCount);
     let sleeperIndex = 0;
