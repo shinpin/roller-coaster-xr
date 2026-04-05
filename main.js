@@ -28,8 +28,8 @@ scene.add(camera);
 scene.add(camera2);
 
 State.players = [
-    { id: 1, lane: -1, currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1 },
-    { id: 2, lane: 1,  currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1 }
+    { id: 1, lane: -1, currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1, coinCombo: 0, comboText: '', collisionFlashUntil: 0 },
+    { id: 2, lane: 1,  currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1, coinCombo: 0, comboText: '', collisionFlashUntil: 0 }
 ];
 
 const renderer = new THREE.WebGLRenderer({ antialias: false }); 
@@ -104,14 +104,14 @@ const { cartGroup, wheelsData } = createCartModel(0xdd1111, false, '01');
 State.wheelsData.push(...wheelsData);
 camera.add(cartGroup);
 cartGroup.scale.setScalar(0.675 * 0.8); 
-cartGroup.position.set(0, -0.65, -1.0);  
+cartGroup.position.set(0, -0.85, -1.0);  
 
 // --- Player 2 Cart Model ---
 const p2 = createCartModel(0x1111dd, false, '02');
 State.wheelsData.push(...p2.wheelsData);
 camera2.add(p2.cartGroup);
 p2.cartGroup.scale.setScalar(0.675 * 0.8); 
-p2.cartGroup.position.set(0, -0.65, -1.0);  
+p2.cartGroup.position.set(0, -0.85, -1.0);  
 
 // --- Menu Cart Showcase (INDEPENDENT renderer, scene, camera) ---
 // This completely avoids all main scene conflicts (buildScene clearing, lighting, etc.)
@@ -213,15 +213,15 @@ camera2.add(headLight2);
 const headLightTarget2 = new THREE.Object3D(); camera2.add(headLightTarget2); headLightTarget2.position.set(0, -4, -15); headLight2.target = headLightTarget2;
 
 // Speed Lines for P1
-const speedLineCount = 150;
-const speedLineGeo = new THREE.CylinderGeometry(0.04, 0.04, 30, 4); speedLineGeo.rotateX(Math.PI / 2); 
-const speedLineGroup = new THREE.InstancedMesh(speedLineGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 }), speedLineCount);
+const speedLineCount = 200;
+const speedLineGeo = new THREE.CylinderGeometry(0.15, 0.02, 60, 4); speedLineGeo.rotateX(Math.PI / 2); 
+const speedLineGroup = new THREE.InstancedMesh(speedLineGeo, new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0 }), speedLineCount);
 speedLineGroup.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 const tempObj = new THREE.Object3D();
 for (let i = 0; i < speedLineCount; i++) {
-    const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 20 + 3; const zOff = -(Math.random() * 250 + 50); 
+    const angle = Math.random() * Math.PI * 2; const radius = Math.random() * 15 + 2; const zOff = -(Math.random() * 300 + 50); 
     tempObj.position.set(Math.cos(angle)*radius, Math.sin(angle)*radius, zOff);
-    tempObj.scale.set(1, 1, Math.random() * 1.5 + 0.5); tempObj.updateMatrix();
+    tempObj.scale.set(1, 1, Math.random() * 2.0 + 1.0); tempObj.updateMatrix();
     speedLineGroup.setMatrixAt(i, tempObj.matrix);
 }
 camera.add(speedLineGroup);
@@ -264,7 +264,7 @@ window.startGame = function() {
     setupAudio(); 
 
     const bgMusic = document.getElementById('bg-music');
-    if (bgMusic) {
+    if (bgMusic && State.audioEnabled && State.bgmEnabled) {
         bgMusic.volume = 0.5;
         bgMusic.play().catch(e => console.log("Audio play failed:", e));
     }
@@ -273,6 +273,8 @@ window.startGame = function() {
     document.getElementById('main-title').style.opacity = '0';
     document.getElementById('player-profile').style.opacity = '0';
     document.getElementById('version-info').style.opacity = '0';
+    const audioSettings = document.getElementById('audio-settings');
+    if (audioSettings) audioSettings.style.opacity = '0';
     setTimeout(() => {
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('split-huds').classList.remove('hidden');
@@ -296,6 +298,8 @@ window.startGame = function() {
         State.players.forEach(p => {
             p.targetSpeed = 0; p.currentSpeed = State.baseSpeed * 1.5; 
             p.rideProgress = 0.0; p.lastProgress = 0.0; p.score = 0; 
+            p.coinCombo = 0; p.comboText = ''; p.collisionFlashUntil = 0;
+            p.isBoosting = false;
         });
         flashScore();
         
@@ -319,6 +323,8 @@ initUI({
         document.getElementById('main-title').style.opacity = '1';
         document.getElementById('player-profile').style.opacity = '1';
         document.getElementById('version-info').style.opacity = '1';
+        const audioSettings = document.getElementById('audio-settings');
+        if (audioSettings) audioSettings.style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         const bUI = document.getElementById('boost-alert'); if(bUI) bUI.classList.add('hidden');
         const bgMusic = document.getElementById('bg-music'); if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0; }
@@ -333,6 +339,8 @@ initUI({
         document.getElementById('main-title').style.opacity = '1';
         document.getElementById('player-profile').style.opacity = '1';
         document.getElementById('version-info').style.opacity = '1';
+        const audioSettings = document.getElementById('audio-settings');
+        if (audioSettings) audioSettings.style.opacity = '1';
         document.getElementById('menu-btn').style.display = 'none';
         ['boost-alert-1', 'boost-alert-2'].forEach(id => {
             const b = document.getElementById(id); if(b) b.classList.add('hidden');
@@ -342,12 +350,31 @@ initUI({
     onToggleAudio: () => {
         State.audioEnabled = !State.audioEnabled;
         const btn = document.getElementById('audio-toggle-btn');
-        btn.innerText = State.audioEnabled ? '🔊 AUDIO: ON' : '🔇 AUDIO: OFF';
+        if (btn) btn.innerText = State.audioEnabled ? '🔊 AUDIO: ON' : '🔇 AUDIO: OFF';
         const bgMusic = document.getElementById('bg-music');
         if (State.audioEnabled) {
-            if (State.isRiding) bgMusic.play().catch(e=>console.log(e));
+            if (State.isRiding && State.bgmEnabled) bgMusic.play().catch(e=>console.log(e));
             if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         } else { bgMusic.pause(); }
+    },
+    onToggleBGM: () => {
+        State.bgmEnabled = !State.bgmEnabled;
+        const btn = document.getElementById('toggle-bgm-btn');
+        if (btn) btn.innerText = State.bgmEnabled ? '🎵 BGM: ON' : '🎵 BGM: OFF';
+        const bgMusic = document.getElementById('bg-music');
+        if (bgMusic) {
+            if (State.bgmEnabled && State.isRiding) {
+                bgMusic.play().catch(e=>console.log(e));
+            } else {
+                bgMusic.pause();
+            }
+        }
+    },
+    onToggleSFX: () => {
+        State.sfxEnabled = !State.sfxEnabled;
+        const btn = document.getElementById('toggle-sfx-btn');
+        if (btn) btn.innerText = State.sfxEnabled ? '🔊 SFX: ON' : '🔇 SFX: OFF';
+        // The engine sound is continuous, so we'll immediately update it on next frame by the logic in updateEngineAudio
     },
     onSettingChange: () => {
         const t = document.getElementById('theme-select').value;
@@ -445,8 +472,12 @@ function processRideEvents(p, mapP, lastP, delta) {
                     const sx = (!State.multiplayerMode) ? baseW * 0.5 : (pIdx === 0 ? baseW * 0.25 : baseW * 0.75);
                     const sy = window.innerHeight * 0.6;
                     
+                    p.coinCombo = (p.coinCombo || 0) + 1;
+                    const mult = Math.floor(p.coinCombo / 10) + 1;
+                    
                     showCoinScoreEffect(sx, sy, pIdx, () => { 
-                        p.score += 100; 
+                        p.score += 100 * mult;
+                        p.comboText = p.coinCombo >= 10 ? `COMBO x${p.coinCombo}! *${mult} 倍` : '';
                         flashScore(pIdx); 
                     });
                     playCoinSound(pIdx);
@@ -488,8 +519,8 @@ function updateLightingAndSpeedLines(time, delta) {
         if (p.slg) {
             let slOp = 0;
             if (State.isRiding && (p.isBoosting || p.currentSpeed > State.baseSpeed * 2.5)) {
-                slOp = 0.8;
-                p.slg.position.z = (time * 800) % 300; 
+                slOp = 0.9;
+                p.slg.position.z = (time * 1500) % 350; 
             }
             p.slg.material.opacity = THREE.MathUtils.lerp(p.slg.material.opacity, slOp, delta * 8);
         }
@@ -527,7 +558,12 @@ function updateNPCs(delta, time) {
                 const laneDiff = Math.abs(p.currentLaneOffset - (npc.lane * 2.2));
                 if (laneDiff < 1.0) {
                     // COLLISION: Player loses speed, NPC gets bumped forward
-                    p.currentSpeed *= 0.85; 
+                    p.currentSpeed *= 0.2;
+                    p.targetSpeed = State.baseSpeed * 0.5;
+                    p.isBoosting = false;
+                    p.coinCombo = 0;
+                    p.comboText = '';
+                    p.collisionFlashUntil = time + 0.5;
                     npc.currentSpeed += State.baseSpeed * 2.5; 
                     // Slight screen shake for player
                     p.rig.position.y += (Math.random() - 0.5) * 0.1;
@@ -617,7 +653,7 @@ function updateCameraRig(p, delta, localLook, tangent, slopeImpact) {
     p.vrGForce = Math.max(0, gForceRaw);
 }
 
-function updateHUDAndTelemetry(p, tangent, localLook, nextCoin, playerIndex) {
+function updateHUDAndTelemetry(p, tangent, localLook, nextCoin, playerIndex, time) {
     const isWarning = (p.vrGForce > 2.5 || p.vrGForce < 0.2);
     updateHUD({
         displaySpeed: Math.floor(p.currentSpeed * 100000),
@@ -629,7 +665,10 @@ function updateHUDAndTelemetry(p, tangent, localLook, nextCoin, playerIndex) {
         isTurnLeft: localLook.x < -0.15,
         isTurnRight: localLook.x > 0.15,
         isWarning: isWarning,
-        rank: p.rank || 1
+        rank: p.rank || 1,
+        isBoosting: p.isBoosting,
+        isColliding: time < (p.collisionFlashUntil || 0),
+        comboText: p.comboText || ''
     }, playerIndex);
 
     updateMinimap(playerIndex);
@@ -722,7 +761,7 @@ function animate() {
             });
             p.rank = currentRank;
 
-            updateHUDAndTelemetry(p, tangent, localLook, nextCoin, idx);
+            updateHUDAndTelemetry(p, tangent, localLook, nextCoin, idx, time);
         });
 
         updateNPCs(delta, time);

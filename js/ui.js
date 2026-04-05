@@ -20,10 +20,13 @@ export function initUI(callbacks) {
             warningAlert: document.getElementById(`warning-alert-${i}`),
             scoreUI: document.getElementById(`score-ui-${i}`),
             scoreVal: document.getElementById(`score-val-${i}`),
+            comboUI: document.getElementById(`combo-ui-${i}`),
+            speedOverlay: document.getElementById(`speed-overlay-${i}`),
+            collisionOverlay: document.getElementById(`collision-overlay-${i}`),
             envVal: document.getElementById(`env-val-${i}`),
             rankVal: document.getElementById(`rank-val-${i}`)
         });
-        lastStateTexts[i-1] = { speed: '', alt: '', head: '', g: '', pitch: '', rank: 1 };
+        lastStateTexts[i-1] = { speed: '', alt: '', head: '', g: '', pitch: '', rank: 1, combo: '' };
     }
 
     // Attach Event Listeners
@@ -62,7 +65,14 @@ function setupEventListeners(callbacks) {
     });
 
     document.getElementById('menu-btn').addEventListener('click', callbacks.onMenu);
-    document.getElementById('audio-toggle-btn').addEventListener('click', callbacks.onToggleAudio);
+    const audioBtn = document.getElementById('audio-toggle-btn');
+    if (audioBtn) audioBtn.addEventListener('click', callbacks.onToggleAudio);
+
+    const toggleBgmBtn = document.getElementById('toggle-bgm-btn');
+    if (toggleBgmBtn) toggleBgmBtn.addEventListener('click', callbacks.onToggleBGM);
+
+    const toggleSfxBtn = document.getElementById('toggle-sfx-btn');
+    if (toggleSfxBtn) toggleSfxBtn.addEventListener('click', callbacks.onToggleSFX);
     document.getElementById('save-btn').addEventListener('click', () => saveCurrentTrack());
     document.getElementById('start-btn').addEventListener('click', callbacks.onStart);
     const retBtn = document.getElementById('return-menu-btn');
@@ -147,6 +157,32 @@ export function updateHUD(data, playerIndex) {
         UI.warningAlert.classList.remove('hidden');
     } else {
         UI.warningAlert.classList.add('hidden');
+    }
+    
+    // Combo Text
+    if (data.comboText !== undefined && data.comboText !== last.combo) {
+        if (UI.comboUI) {
+            UI.comboUI.innerText = data.comboText;
+            if (data.comboText === '') {
+                UI.comboUI.classList.add('hidden');
+            } else {
+                UI.comboUI.classList.remove('hidden');
+                UI.comboUI.style.animation = 'none';
+                void UI.comboUI.offsetWidth;
+                UI.comboUI.style.animation = 'pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            }
+        }
+        last.combo = data.comboText;
+    }
+    
+    // Overlays
+    if (UI.speedOverlay) {
+        if (data.isBoosting) UI.speedOverlay.classList.add('active');
+        else UI.speedOverlay.classList.remove('active');
+    }
+    if (UI.collisionOverlay) {
+        if (data.isColliding) UI.collisionOverlay.classList.add('active');
+        else UI.collisionOverlay.classList.remove('active');
     }
 }
 

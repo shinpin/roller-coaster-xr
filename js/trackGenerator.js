@@ -44,7 +44,7 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         const bgMusic = document.getElementById('bg-music');
         if (bgMusic && !bgMusic.src.includes(bgmSrc)) {
             bgMusic.src = bgmSrc;
-            if (State.isRiding && State.audioEnabled) bgMusic.play().catch(e=>console.log(e));
+            if (State.isRiding && State.audioEnabled && State.bgmEnabled) bgMusic.play().catch(e=>console.log(e));
         }
 
         // Clean slate

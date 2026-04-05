@@ -61,8 +61,41 @@ button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 6px 20px r
 #warning-alert { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); font-size: 2.5rem; color: #ff0000; font-weight: bold; text-shadow: 0 0 30px #ff0000, 0 0 10px #ff0000; animation: flashWarn 0.2s infinite alternate; letter-spacing: 5px; }
 @keyframes flashWarn { 0% { opacity: 0.1; } 100% { opacity: 1; } }
 
-#boost-alert { position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%); color: var(--secondary); font-size: 1.5rem; font-weight: bold; text-shadow: 0 0 15px var(--secondary); animation: flashBoost 0.3s infinite; }
-@keyframes flashBoost { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+.boost-alert { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--secondary); font-size: 3rem; font-weight: bold; text-shadow: 0 0 30px var(--secondary), 0 0 10px #fff; animation: flashBoost 0.15s infinite; text-align: center; width: 100%; pointer-events: none; }
+@keyframes flashBoost { 0% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.95); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.95); } }
+
+.speed-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100;
+    opacity: 0; transition: opacity 0.3s; overflow: hidden;
+    background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.85) 100%);
+}
+.speed-overlay.active { opacity: 1; }
+
+.speed-lines-layer {
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: repeating-conic-gradient(from 0deg, transparent 0deg 8deg, rgba(0, 255, 255, 0.4) 8deg 10deg);
+    animation: speedWarp 0.4s infinite linear;
+    mask-image: radial-gradient(circle, transparent 20%, black 70%);
+    -webkit-mask-image: radial-gradient(circle, transparent 20%, black 70%);
+}
+.speed-lines-layer:nth-child(2) {
+    background: repeating-conic-gradient(from 15deg, transparent 0deg 5deg, rgba(255, 255, 255, 0.3) 5deg 7deg);
+    animation: speedWarp 0.3s infinite linear;
+    animation-delay: 0.15s;
+}
+@keyframes speedWarp {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+.collision-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 110;
+    box-shadow: inset 0 0 80px 30px rgba(255, 0, 0, 0.8);
+    background: rgba(255, 0, 0, 0.15);
+    opacity: 0; transition: opacity 0.1s;
+}
+.collision-overlay.active { opacity: 1; }
 
 
 /* Side Panels */

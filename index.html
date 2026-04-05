@@ -50,6 +50,12 @@
             <div class="version-date" style="color: #888; font-size: 0.8rem;">2026.04.03</div>
         </div>
 
+        <!-- Audio Settings (Top Right, below Version Info) -->
+        <div id="audio-settings" style="position: fixed; top: 80px; right: 20px; z-index: 2000; display: flex; gap: 10px; opacity: 1; transition: opacity 0.5s;">
+            <button id="toggle-bgm-btn" class="mini-btn" style="padding: 5px 10px; font-size: 0.9rem; border-color: #0ff; color: #0ff; text-shadow: 0 0 5px #0ff; box-shadow: 0 0 5px rgba(0,255,255,0.3);">🎵 BGM: ON</button>
+            <button id="toggle-sfx-btn" class="mini-btn" style="padding: 5px 10px; font-size: 0.9rem; border-color: #ff00ea; color: #ff00ea; text-shadow: 0 0 5px #ff00ea; box-shadow: 0 0 5px rgba(255,0,234,0.3);">🔊 SFX: ON</button>
+        </div>
+
         <!-- Game Title (fixed position, above showcase cart) -->
         <h1 id="main-title" class="main-title">Neon Coaster XR</h1>
 
@@ -161,16 +167,21 @@
         <div id="split-huds" class="hidden" style="position: absolute; top:0; left:0; display: flex; width: 100%; height: 100%; pointer-events: none;">
             <!-- P1 HUD (Left) -->
             <div id="advanced-hud-1" style="position: relative; width: 50%; height: 100%; overflow: hidden; border-right: 2px solid #00eeff; pointer-events: none;">
-                <div id="score-ui-1" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 250px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5);">SCORE: <span id="score-val-1" style="display:inline-block; transform-origin: center;">0</span><br><span style="font-size: 0.7em; color: #aaffaa;">RANK: <span id="rank-val-1">1</span>/4</span></div>
-                <canvas id="minimap-1" width="150" height="150" style="position: absolute; bottom: 10px; right: 20px;"></canvas>
-                <div id="crosshair-1" class="crosshair">
+                <div id="speed-overlay-1" class="speed-overlay">
+                    <div class="speed-lines-layer"></div>
+                    <div class="speed-lines-layer"></div>
+                </div>
+                <div id="collision-overlay-1" class="collision-overlay"></div>
+                <div id="score-ui-1" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 250px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5); z-index: 200;">SCORE: <span id="score-val-1" style="display:inline-block; transform-origin: center; color: gold; text-shadow: 0 0 15px gold; font-weight: 900;">0</span><br><span id="combo-ui-1" class="hidden" style="display: block; font-size: 1.2rem; color: #ff5500; font-weight: bold; text-shadow: 0 0 10px #ff5500; margin: -5px 0 5px 0;"></span><span style="font-size: 0.7em; color: #aaffaa;">RANK: <span id="rank-val-1">1</span>/4</span></div>
+                <canvas id="minimap-1" width="150" height="150" style="position: absolute; bottom: 10px; right: 20px; z-index: 200;"></canvas>
+                <div id="crosshair-1" class="crosshair" style="z-index: 100;">
                     <div class="ch-line ch-horiz"></div><div class="ch-line ch-vert"></div>
                     <div id="pitch-ladder-container-1" class="pitch-ladder-container"><div id="pitch-ladder-1" class="pitch-ladder"></div></div>
                 </div>
-                <div id="turn-indicator-left-1" class="turn-indicator hidden" style="left: 20%;">⋘</div>
-                <div id="turn-indicator-right-1" class="turn-indicator hidden" style="right: 20%;">⋙</div>
-                <div id="warning-alert-1" class="hidden warning-alert">⚠ HIGH G-FORCE ⚠</div>
-                <div id="boost-alert-1" class="hidden boost-alert">▶▶ BOOST ACTIVE ◀◀</div>
+                <div id="turn-indicator-left-1" class="turn-indicator hidden" style="left: 20%; z-index: 200;">⋘</div>
+                <div id="turn-indicator-right-1" class="turn-indicator hidden" style="right: 20%; z-index: 200;">⋙</div>
+                <div id="warning-alert-1" class="hidden warning-alert" style="z-index: 200;">⚠ HIGH G-FORCE ⚠</div>
+                <div id="boost-alert-1" class="hidden boost-alert" style="z-index: 200;">▶▶ BOOST ACTIVE ◀◀</div>
 
                 <div class="hud-panel left" style="pointer-events: auto;">
                     <div class="hud-block"><span class="hud-label">VELOCITY</span><span id="speed-val-1" class="hud-value">0<span> km/h</span></span></div>
@@ -186,17 +197,22 @@
             </div>
 
             <!-- P2 HUD (Right) -->
-            <div id="advanced-hud-2" style="position: relative; width: 50%; height: 100%; overflow: hidden; border-left: 2px solid #00eeff;">
-                <div id="score-ui-2" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 250px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5);">SCORE: <span id="score-val-2" style="display:inline-block; transform-origin: center;">0</span><br><span style="font-size: 0.7em; color: #aaffaa;">RANK: <span id="rank-val-2">1</span>/4</span></div>
-                <canvas id="minimap-2" width="150" height="150" style="position: absolute; bottom: 10px; right: 20px;"></canvas>
-                <div id="crosshair-2" class="crosshair">
+            <div id="advanced-hud-2" style="position: relative; width: 50%; height: 100%; overflow: hidden; border-left: 2px solid #00eeff; pointer-events: none;">
+                <div id="speed-overlay-2" class="speed-overlay">
+                    <div class="speed-lines-layer"></div>
+                    <div class="speed-lines-layer"></div>
+                </div>
+                <div id="collision-overlay-2" class="collision-overlay"></div>
+                <div id="score-ui-2" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; text-align: center; width: 250px; color: #ffd700; border: 2px solid #ffd700; border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.5); z-index: 200;">SCORE: <span id="score-val-2" style="display:inline-block; transform-origin: center; color: gold; text-shadow: 0 0 15px gold; font-weight: 900;">0</span><br><span id="combo-ui-2" class="hidden" style="display: block; font-size: 1.2rem; color: #ff5500; font-weight: bold; text-shadow: 0 0 10px #ff5500; margin: -5px 0 5px 0;"></span><span style="font-size: 0.7em; color: #aaffaa;">RANK: <span id="rank-val-2">1</span>/4</span></div>
+                <canvas id="minimap-2" width="150" height="150" style="position: absolute; bottom: 10px; right: 20px; z-index: 200;"></canvas>
+                <div id="crosshair-2" class="crosshair" style="z-index: 100;">
                     <div class="ch-line ch-horiz"></div><div class="ch-line ch-vert"></div>
                     <div id="pitch-ladder-container-2" class="pitch-ladder-container"><div id="pitch-ladder-2" class="pitch-ladder"></div></div>
                 </div>
-                <div id="turn-indicator-left-2" class="turn-indicator hidden" style="left: 20%;">⋘</div>
-                <div id="turn-indicator-right-2" class="turn-indicator hidden" style="right: 20%;">⋙</div>
-                <div id="warning-alert-2" class="hidden warning-alert">⚠ HIGH G-FORCE ⚠</div>
-                <div id="boost-alert-2" class="hidden boost-alert">▶▶ BOOST ACTIVE ◀◀</div>
+                <div id="turn-indicator-left-2" class="turn-indicator hidden" style="left: 20%; z-index: 200;">⋘</div>
+                <div id="turn-indicator-right-2" class="turn-indicator hidden" style="right: 20%; z-index: 200;">⋙</div>
+                <div id="warning-alert-2" class="hidden warning-alert" style="z-index: 200;">⚠ HIGH G-FORCE ⚠</div>
+                <div id="boost-alert-2" class="hidden boost-alert" style="z-index: 200;">▶▶ BOOST ACTIVE ◀◀</div>
 
                 <div class="hud-panel left">
                     <div class="hud-block"><span class="hud-label">VELOCITY</span><span id="speed-val-2" class="hud-value">0<span> km/h</span></span></div>

@@ -36,5 +36,7 @@ export const State = {
     
     // Global flags
     isDebug: false,
-    audioEnabled: true
+    audioEnabled: true, // Legacy master switch (optional if we replace it completely, but better keep it for backward compatibility)
+    bgmEnabled: true,
+    sfxEnabled: true
 };

@@ -42,7 +42,7 @@ export function setupAudio() {
 }
 
 export function playCoinSound(playerIndex = 0) {
-    if (!audioCtx || !State.audioEnabled) return;
+    if (!audioCtx || !State.audioEnabled || !State.sfxEnabled) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     const panner = audioCtx.createStereoPanner();
@@ -65,7 +65,7 @@ export function playCoinSound(playerIndex = 0) {
 }
 
 export function playBoostSound(playerIndex = 0) {
-    if (!audioCtx || !State.audioEnabled) return;
+    if (!audioCtx || !State.audioEnabled || !State.sfxEnabled) return;
     const osc = audioCtx.createOscillator();
     osc.type = 'square';
     osc.frequency.setValueAtTime(400, audioCtx.currentTime);
@@ -88,10 +88,11 @@ export function playBoostSound(playerIndex = 0) {
 
 export function updateEngineAudio(speedP1, speedP2 = 0) {
     if (engineAudio) {
+        const sfxVol = (State.audioEnabled && State.sfxEnabled) ? 1.0 : 0.0;
         engineAudio.p1.filter.frequency.value = 50 + (speedP1 * 200000);
-        engineAudio.p1.gainNode.gain.value = Math.min(1.0, speedP1 * 2000);
+        engineAudio.p1.gainNode.gain.value = Math.min(1.0, speedP1 * 2000) * sfxVol;
         
         engineAudio.p2.filter.frequency.value = 50 + (speedP2 * 200000);
-        engineAudio.p2.gainNode.gain.value = Math.min(1.0, speedP2 * 2000);
+        engineAudio.p2.gainNode.gain.value = Math.min(1.0, speedP2 * 2000) * sfxVol;
     }
 }
