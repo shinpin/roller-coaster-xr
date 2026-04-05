@@ -84,6 +84,10 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         const ambientLight = new THREE.AmbientLight(State.currentTime.dirCol, State.currentTime.ambient * 0.8);
         scene.add(ambientLight);
         
+        // 額外補的環境白光，提升整體可見度
+        const extraAmbient = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(extraAmbient);
+        
         currentHemiLight = new THREE.HemisphereLight(State.currentTime.dirCol, State.currentTheme.ground, State.currentTime.ambient * 1.2);
         scene.add(currentHemiLight);
 
