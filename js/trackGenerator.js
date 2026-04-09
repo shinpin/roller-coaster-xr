@@ -35,12 +35,12 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         updateEnvironmentUI();
 
         const bgmMap = {
-            'sky': 'BGM_skytrack_cloud.mp3',
-            'land': 'BGM_skytrack_land.mp3',
-            'abstract': 'BGM_skytrack_star.mp3',
-            'underwater': 'BGM_skytrack_sea.mp3'
+            'sky': 'assets/audio/BGM_skytrack_cloud.mp3',
+            'land': 'assets/audio/BGM_skytrack_land.mp3',
+            'abstract': 'assets/audio/BGM_skytrack_star.mp3',
+            'underwater': 'assets/audio/BGM_skytrack_sea.mp3'
         };
-        const bgmSrc = bgmMap[State.currentTheme.type] || 'BGM_skytrack_sea.mp3';
+        const bgmSrc = bgmMap[State.currentTheme.type] || 'assets/audio/BGM_skytrack_sea.mp3';
         const bgMusic = document.getElementById('bg-music');
         if (bgMusic && !bgMusic.src.includes(bgmSrc)) {
             bgMusic.src = bgmSrc;
@@ -60,10 +60,11 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
 
         // Lighting & Background Generation
         const textureLoader = new THREE.TextureLoader();
-        let bgTextureFile = 'PanoGen360_4K_sea.jpg';
-        if (themeKey === 'land') bgTextureFile = 'PanoGen360_4K_land.jpg';
-        else if (themeKey === 'sky') bgTextureFile = 'PanoGen360_4K_cloud.jpg';
-        else if (themeKey === 'synthwave') bgTextureFile = 'PanoGen360_4K_star.jpg';
+        let bgTextureFile = 'assets/textures/PanoGen360_4K_sea.jpg';
+        if (themeKey === 'land') bgTextureFile = 'assets/textures/PanoGen360_4K_land.jpg';
+        else if (themeKey === 'sky') bgTextureFile = 'assets/textures/PanoGen360_4K_cloud.jpg';
+        else if (themeKey === 'synthwave') bgTextureFile = 'assets/textures/PanoGen360_4K_star.jpg';
+        else if (themeKey === 'kyoto') bgTextureFile = 'assets/textures/Kyoto English.jpg';
 
         textureLoader.load(bgTextureFile + '?v=' + Date.now(), (texture) => {
             texture.mapping = THREE.EquirectangularReflectionMapping;

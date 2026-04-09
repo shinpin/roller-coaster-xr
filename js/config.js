@@ -6,7 +6,8 @@ export const THEMES = {
     underwater: { type: 'underwater', bg: 0x001e4a, track: 0x00ffff, ground: 0x001133, accent: [0x0077ff, 0x00ffff, 0x00ff88], fogExp: 0.02, groundWire: false },
     sky: { type: 'sky', bg: 0x55aaff, track: 0xffffff, ground: 0x3388cc, accent: [0xffffff, 0xeeeeee, 0xffddaa], fogExp: 0.005, groundWire: false },
     land: { type: 'land', bg: 0x4aacc5, track: 0x8B4513, ground: 0x228B22, accent: [0x228B22, 0x32CD32, 0x00ff00], fogExp: 0.008, groundWire: false },
-    synthwave: { type: 'abstract', bg: 0x050510, track: 0x00f3ff, ground: 0x111122, accent: [0xff00ea, 0x00f3ff, 0x00ffaa], fogExp: 0.015, groundWire: true }
+    synthwave: { type: 'abstract', bg: 0x050510, track: 0x00f3ff, ground: 0x111122, accent: [0xff00ea, 0x00f3ff, 0x00ffaa], fogExp: 0.015, groundWire: true },
+    kyoto: { type: 'land', bg: 0xffe6f2, track: 0xdc143c, ground: 0x8F9779, accent: [0xff69b4, 0xffb6c1, 0xff1493], fogExp: 0.005, groundWire: false }
 };
 
 export const TIMES = {

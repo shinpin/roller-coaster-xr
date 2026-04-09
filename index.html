@@ -12,7 +12,7 @@
     <meta property="og:description" content="程序生成的 3D 雲霄飛車 — 支援 WebXR VR">
     <meta property="og:url" content="https://shinpin.github.io/roller-coaster-xr/">
     <meta property="og:type" content="website">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="css/style.css?v=2">
     <!-- Import Three.js and add-ons via Import Maps -->
     <script type="importmap">
         {
@@ -96,6 +96,7 @@
                             <option value="sky">Sky Realm (天空)</option>
                             <option value="land">Forest Land (陸地)</option>
                             <option value="synthwave">Synthwave (抽象)</option>
+                            <option value="kyoto">Kyoto (京都)</option>
                         </select>
                     </div>
                     
@@ -226,12 +227,12 @@
                 <div id="warning-alert-2" class="hidden warning-alert" style="z-index: 200;">⚠ HIGH G-FORCE ⚠</div>
                 <div id="boost-alert-2" class="hidden boost-alert" style="z-index: 200;">▶▶ BOOST ACTIVE ◀◀</div>
 
-                <div class="hud-panel left">
+                <div class="hud-panel left" style="pointer-events: auto;">
                     <div class="hud-block"><span class="hud-label">VELOCITY</span><span id="speed-val-2" class="hud-value">0<span> km/h</span></span></div>
                     <div class="hud-block"><span class="hud-label">G-FORCE</span><span id="gforce-val-2" class="hud-value">1.0<span> G</span></span></div>
                     <div class="bar-container"><div id="accel-bar-2"></div></div>
                 </div>
-                <div class="hud-panel right" style="left: 20px; right: auto; bottom: 20px;">
+                <div class="hud-panel right" style="position: absolute; right: 20px; bottom: 20px; pointer-events: auto;">
                     <div class="hud-block"><span class="hud-label">ENVIRONMENT</span><span id="env-val-2" class="hud-value">☀️ 10:00</span></div>
                     <div class="hud-block"><span class="hud-label">ALTITUDE</span><span id="alt-val-2" class="hud-value">0<span> m</span></span></div>
                     <div class="hud-block"><span class="hud-label">HEADING</span><span id="head-val-2" class="hud-value">000<span> &deg;</span></span></div>
@@ -246,7 +247,7 @@
         </div>
     </div>
     <div id="canvas-container"></div>
-    <audio id="bg-music" src="bg_music.mp3" loop preload="auto"></audio>
+    <audio id="bg-music" src="assets/audio/bg_music.mp3" loop preload="auto"></audio>
     <script type="module" src="main.js"></script>
 </body>
 </html>
