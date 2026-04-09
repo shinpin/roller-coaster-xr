@@ -37,10 +37,11 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         const bgmMap = {
             'sky': 'assets/audio/BGM_skytrack_cloud.mp3',
             'land': 'assets/audio/BGM_skytrack_land.mp3',
-            'abstract': 'assets/audio/BGM_skytrack_star.mp3',
-            'underwater': 'assets/audio/BGM_skytrack_sea.mp3'
+            'synthwave': 'assets/audio/BGM_skytrack_star.mp3',
+            'underwater': 'assets/audio/BGM_skytrack_sea.mp3',
+            'kyoto': 'assets/audio/BGM_skytrack01.wav'
         };
-        const bgmSrc = bgmMap[State.currentTheme.type] || 'assets/audio/BGM_skytrack_sea.mp3';
+        const bgmSrc = bgmMap[themeKey] || 'assets/audio/bg_music.mp3';
         const bgMusic = document.getElementById('bg-music');
         if (bgMusic && !bgMusic.src.includes(bgmSrc)) {
             bgMusic.src = bgmSrc;
