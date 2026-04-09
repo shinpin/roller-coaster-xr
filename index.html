@@ -135,6 +135,16 @@
                             <option value="">-- Randomize New Track --</option>
                         </select>
                     </div>
+
+                    <div class="option-group option-group--full" style="margin-top: 10px; width: 100%;">
+                        <label>⚡ Performance (效能優化開關)</label>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px; color: #aaa; font-size: 0.9rem;">
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="perf-bloom" checked> Bloom</label>
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="perf-shadows" checked> Shadows</label>
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="perf-particles" checked> Weather</label>
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;"><input type="checkbox" id="perf-resolution" checked> High Res</label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -249,6 +259,6 @@
     </div>
     <div id="canvas-container"></div>
     <audio id="bg-music" src="assets/audio/bg_music.mp3" loop preload="auto"></audio>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.js?v=3"></script>
 </body>
 </html>

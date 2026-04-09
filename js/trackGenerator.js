@@ -80,24 +80,31 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         baseBgColor.g *= modColors.g;
         baseBgColor.b *= modColors.b;
         
-        scene.fog = new THREE.FogExp2(baseBgColor.getHex(), State.currentTheme.fogExp * State.currentTime.fogMod);
+        // Prevent fog from turning pitch black, which ruins scenes with bright skyboxes
+        baseBgColor.lerp(new THREE.Color(0xffffff), 0.15);
+        
+        // Reduce fog density drastically so we can see the environment better
+        const fogDensity = State.currentTheme.fogExp * State.currentTime.fogMod * 0.4;
+        scene.fog = new THREE.FogExp2(baseBgColor.getHex(), fogDensity);
 
         // Dye the environment by using dirCol for ambient light (Sunset orange / Night blue)
-        const ambientLight = new THREE.AmbientLight(State.currentTime.dirCol, State.currentTime.ambient * 0.8);
+        const ambientLight = new THREE.AmbientLight(State.currentTime.dirCol, State.currentTime.ambient * 1.0);
         scene.add(ambientLight);
         
         // 額外補的環境白光，提升整體可見度
-        const extraAmbient = new THREE.AmbientLight(0xffffff, 0.5);
+        const extraAmbient = new THREE.AmbientLight(0xffffff, 1.2); // Boosted from 0.8
         scene.add(extraAmbient);
         
-        currentHemiLight = new THREE.HemisphereLight(State.currentTime.dirCol, State.currentTheme.ground, State.currentTime.ambient * 1.2);
+        // Hemisphere light: Sky color (dirCol), Ground color (lighter hue), Intensity
+        const groundHemiColor = new THREE.Color(State.currentTheme.ground).lerp(new THREE.Color(0xffffff), 0.2);
+        currentHemiLight = new THREE.HemisphereLight(State.currentTime.dirCol, groundHemiColor.getHex(), State.currentTime.ambient * 2.0);
         scene.add(currentHemiLight);
 
         currentDirLight = new THREE.DirectionalLight(State.currentTime.dirCol, (State.currentTheme.type === 'sky' ? 2.5 : 1.5) * State.currentTime.dirLight);
         currentDirLight.position.set(50, 100, 50);
-        currentDirLight.castShadow = true;
-        currentDirLight.shadow.mapSize.width = 1024;
-        currentDirLight.shadow.mapSize.height = 1024;
+        currentDirLight.castShadow = State.perf ? State.perf.shadows : true;
+        currentDirLight.shadow.mapSize.width = 2048;
+        currentDirLight.shadow.mapSize.height = 2048;
         
         const canvasFlare = document.createElement('canvas');
         canvasFlare.width = 256; canvasFlare.height = 256;
@@ -217,6 +224,7 @@ function generateEnvironmentProps(scene) {
             });
             State.weatherParticles = new THREE.Points(pGeo, pMat);
         }
+        State.weatherParticles.visible = State.perf ? State.perf.particles : true;
         scene.add(State.weatherParticles);
     } else {
         State.weatherParticles = null;
@@ -578,7 +586,7 @@ function generateTrack(scene) {
     if(State.currentTheme.type === 'underwater') overlayColor = 0xaaccff;
     if(State.currentTheme.type === 'land') overlayColor = 0xddbb99;
     
-    const trackMat = new THREE.MeshStandardMaterial({ map: trackTexture, color: overlayColor, roughness: 0.8, metalness: 0.2 });
+    const trackMat = new THREE.MeshStandardMaterial({ map: trackTexture, color: overlayColor, roughness: 0.3, metalness: 0.6 });
     const trackMain = new THREE.Mesh(trackGeo, trackMat);
     trackMain.castShadow = true; trackMain.receiveShadow = true;
     scene.add(trackMain);

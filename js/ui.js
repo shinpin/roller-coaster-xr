@@ -97,6 +97,18 @@ function setupEventListeners(callbacks) {
             }
         });
     }
+
+    const perfBloom = document.getElementById('perf-bloom');
+    if (perfBloom) perfBloom.addEventListener('change', (e) => { if(callbacks.onTogglePerf) callbacks.onTogglePerf('bloom', e.target.checked) });
+    
+    const perfShadows = document.getElementById('perf-shadows');
+    if (perfShadows) perfShadows.addEventListener('change', (e) => { if(callbacks.onTogglePerf) callbacks.onTogglePerf('shadows', e.target.checked) });
+
+    const perfParticles = document.getElementById('perf-particles');
+    if (perfParticles) perfParticles.addEventListener('change', (e) => { if(callbacks.onTogglePerf) callbacks.onTogglePerf('particles', e.target.checked) });
+
+    const perfResolution = document.getElementById('perf-resolution');
+    if (perfResolution) perfResolution.addEventListener('change', (e) => { if(callbacks.onTogglePerf) callbacks.onTogglePerf('resolution', e.target.checked) });
 }
 
 // State Caching for Throttling UI Updates

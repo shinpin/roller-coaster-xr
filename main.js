@@ -33,12 +33,13 @@ State.players = [
     { id: 2, lane: 1,  currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1, coinCombo: 0, comboText: '', collisionFlashUntil: 0 }
 ];
 
-const renderer = new THREE.WebGLRenderer({ antialias: false }); 
+const renderer = new THREE.WebGLRenderer({ antialias: true }); 
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ReinhardToneMapping; 
+renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+renderer.toneMappingExposure = 1.2;
 
 // --- Enable VR / WebXR ---
 renderer.xr.enabled = true;
@@ -194,6 +195,11 @@ function updateShowcase() {
 
 // 建立 3D 選單實體 (Web 端預覽用)
 const webMenu = create3DMenu(showcaseScene);
+// 精確計算：放置於攝影機視野的左半邊 (離中心往左一點的安全區)，既不擋住中間的賽車，也不會超出畫面
+webMenu.position.set(3.7, 1.5, 3.1); 
+webMenu.lookAt(showcaseCamera.position); 
+webMenu.scale.set(1.2, 1.2, 1.2); 
+
 // 建立 3D 選單實體 (VR 端預覽用，預設置於 VR 遊玩準備空間)
 const vrMenu = create3DMenu(scene);
 vrMenu.position.set(0, 1.5, -4);
@@ -278,7 +284,7 @@ const bokehPass = new BokehPass(scene, camera, { focus: 30.0, aperture: 0.0001, 
 bokehPass.enabled = false; 
 composer.addPass(bokehPass);
 const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-bloomPass.threshold = 0.4; bloomPass.strength = 0.4; bloomPass.radius = 0.3;    
+bloomPass.threshold = 0.15; bloomPass.strength = 0.8; bloomPass.radius = 0.5;    
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
@@ -430,6 +436,19 @@ initUI({
     onLoadTrack: (conf) => {
         buildScene(scene, camera, conf.theme, conf.time, conf.weather, conf.seed);
         ensureMenuCart();
+    },
+    onTogglePerf: (key, value) => {
+        State.perf[key] = value;
+        if (key === 'bloom') {
+            bloomPass.enabled = value;
+        } else if (key === 'shadows') {
+            renderer.shadowMap.enabled = value;
+            scene.traverse(c => { if(c.material) c.material.needsUpdate = true; });
+        } else if (key === 'resolution') {
+            renderer.setPixelRatio(value ? Math.min(window.devicePixelRatio, 2) : 1);
+        } else if (key === 'particles') {
+            if (State.weatherParticles) State.weatherParticles.visible = value;
+        }
     }
 });
 

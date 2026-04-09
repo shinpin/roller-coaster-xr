@@ -38,5 +38,13 @@ export const State = {
     isDebug: false,
     audioEnabled: true, // Legacy master switch (optional if we replace it completely, but better keep it for backward compatibility)
     bgmEnabled: true,
-    sfxEnabled: true
+    sfxEnabled: true,
+    
+    // Performance Toggles
+    perf: {
+        bloom: true,
+        shadows: true,
+        particles: true,
+        highRes: true
+    }
 };
