@@ -13,7 +13,8 @@ import { setupAudio, playCoinSound, playBoostSound, updateEngineAudio, audioCtx 
 import { setupInput, setupXRInput } from './js/input.js';
 import { initUI, updateHUD, showCoinScoreEffect, flashScore, updateDebugPanel, updateMinimap, showMatchResult, hideMatchResult } from './js/ui.js';
 import { buildScene, currentDirLight, createCartModel } from './js/trackGenerator.js';
-
+import ThreeMeshUI from 'three-mesh-ui';
+import { create3DMenu, interactiveUIMeshes } from './js/menu3d.js';
 // --- Global Renderer Setup ---
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
@@ -66,6 +67,16 @@ renderer.xr.addEventListener('sessionend', () => {
     hideVrHud();
     xrRig.position.set(0, 0, 0);
 });
+
+// Setup XR Controller Raycaster
+const xrController = renderer.xr.getController(0);
+xrController.addEventListener('selectstart', () => { xrController.userData.selectPressed = true; });
+xrController.addEventListener('selectend', () => { xrController.userData.selectPressed = false; });
+scene.add(xrController);
+
+const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -10)]);
+const laserLine = new THREE.Line(laserGeo, new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5 }));
+xrController.add(laserLine);
 
 container.appendChild(renderer.domElement);
 
@@ -180,6 +191,25 @@ function updateShowcase() {
     
     showcaseRenderer.render(showcaseScene, showcaseCamera);
 }
+
+// 建立 3D 選單實體 (Web 端預覽用)
+const webMenu = create3DMenu(showcaseScene);
+// 建立 3D 選單實體 (VR 端預覽用，預設置於 VR 遊玩準備空間)
+const vrMenu = create3DMenu(scene);
+vrMenu.position.set(0, 1.5, -4);
+
+// Setup Web Mouse Raycaster
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2(-1, -1);
+let mouseClick = false;
+
+window.addEventListener('pointermove', (e) => {
+    if (!showcaseActive) return;
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+window.addEventListener('pointerdown', () => { if(showcaseActive) mouseClick = true; });
+window.addEventListener('pointerup', () => { mouseClick = false; });
 
 // --- Initialize Random Player Profile ---
 function initPlayerProfile() {
@@ -715,12 +745,60 @@ function checkRideEnd() {
 
 
 function animate() {
+    ThreeMeshUI.update();
     const delta = Math.min(0.05, clock.getDelta());
     const time = clock.getElapsedTime();
+
+    // 處理 3D UI 射線互動 (UI Raycasting)
+    let currentIntersects = [];
+    if (showcaseActive && interactiveUIMeshes.length > 0) {
+        // Web 模式: 使用滑鼠射線
+        raycaster.setFromCamera(mouse, showcaseCamera);
+        currentIntersects = raycaster.intersectObjects(interactiveUIMeshes, true);
+        
+        interactiveUIMeshes.forEach(obj => { if(obj.onIdle) obj.onIdle(); });
+        if (currentIntersects.length > 0) {
+            let hitTarget = currentIntersects[0].object;
+            while(hitTarget && !hitTarget.onHover && hitTarget.parent) hitTarget = hitTarget.parent;
+            
+            if (hitTarget && hitTarget.onHover) {
+                if (mouseClick) {
+                    if (hitTarget.onClick) hitTarget.onClick();
+                    mouseClick = false; // 單次點擊防抖
+                } else {
+                    hitTarget.onHover();
+                }
+            }
+        }
+    } else if (renderer.xr.isPresenting && interactiveUIMeshes.length > 0 && !State.isRiding) {
+        // VR 模式: 使用手把雷射射線
+        const tempMatrix = new THREE.Matrix4();
+        tempMatrix.identity().extractRotation(xrController.matrixWorld);
+        raycaster.ray.origin.setFromMatrixPosition(xrController.matrixWorld);
+        raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+        
+        currentIntersects = raycaster.intersectObjects(interactiveUIMeshes, true);
+        interactiveUIMeshes.forEach(obj => { if(obj.onIdle) obj.onIdle(); });
+        
+        if (currentIntersects.length > 0) {
+            let hitTarget = currentIntersects[0].object;
+            while(hitTarget && !hitTarget.onHover && hitTarget.parent) hitTarget = hitTarget.parent;
+            
+            if (hitTarget && hitTarget.onHover) {
+                if (xrController.userData.selectPressed) {
+                    if (hitTarget.onClick) hitTarget.onClick();
+                    xrController.userData.selectPressed = false; 
+                } else {
+                    hitTarget.onHover();
+                }
+            }
+        }
+    }
 
     updateParticles(delta, time);
 
     if (State.isRiding) {
+        vrMenu.visible = false; // 掛載在 scene 上的選單在騎乘時需隱藏
         if (menuCartObj) menuCartObj.cartGroup.visible = false;
         
         const activePlayers = (State.multiplayerMode && !renderer.xr.isPresenting) ? State.players : [State.players[0]];
@@ -782,7 +860,8 @@ function animate() {
          showcaseCanvas.style.display = 'block';
          updateShowcase();
 
-         if (renderer.xr.isPresenting) {
+     if (renderer.xr.isPresenting) {
+            vrMenu.visible = true; // 在 VR 準備畫面顯示 3D 選單
             State.players[0].rig.position.set(Math.sin(time * 0.2)*120, 50, Math.cos(time * 0.2)*120);
             State.players[0].rig.lookAt(0, 0, 0);
         } else {
