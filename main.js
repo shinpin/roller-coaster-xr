@@ -831,12 +831,19 @@ function animate() {
                 p.hl.color.setHex(0xffffff);
             }
 
-            p.currentSpeed = THREE.MathUtils.lerp(p.currentSpeed, p.targetSpeed, delta * 3);
+            // 計算軌道起伏與斜度 (Gravity Impact)
             const tangent = State.curve.getTangentAt(p.rideProgress % 1.0).normalize();
+            const slopeImpact = -tangent.y; // 往下是正數 (加速), 往上是負數 (減速)
             
-            const slopeImpact = -tangent.y; 
-            p.currentSpeed += slopeImpact * State.baseSpeed * 1.66 * delta; 
-            p.currentSpeed = Math.max(0.0001, Math.min(p.currentSpeed, State.baseSpeed * 6.5));
+            // 將斜度化為巨大的動能增幅 (重力加成)
+            const gravityBonus = slopeImpact * State.baseSpeed * 4.0;
+            const finalTargetSpeed = p.targetSpeed + gravityBonus;
+            
+            // 將當前速度平滑漸變 (Lerp) 至受重力影響的目標速度 (加速時反應更快)
+            p.currentSpeed = THREE.MathUtils.lerp(p.currentSpeed, finalTargetSpeed, delta * (p.isBoosting ? 5.0 : 1.5));
+            
+            // 限制安全極速與最低攀爬引擎怠速，避免倒退或飛出軌道
+            p.currentSpeed = Math.max(State.baseSpeed * 0.3, Math.min(p.currentSpeed, State.baseSpeed * 8.0));
             
             p.rideProgress += p.currentSpeed * delta * 60; 
 
