@@ -205,8 +205,20 @@ let mouseClick = false;
 
 window.addEventListener('pointermove', (e) => {
     if (!showcaseActive) return;
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    const rect = showcaseCanvas.getBoundingClientRect();
+    
+    // 判斷滑鼠是否在 showcaseCanvas 範圍內
+    if (e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        
+        // 轉換為 -1 到 +1 之間的標準化設備座標 (NDC)
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    } else {
+        // 如果滑鼠移出畫布範圍，將座標設為無限遠避免選取
+        mouse.x = -9999;
+        mouse.y = -9999;
+    }
 });
 window.addEventListener('pointerdown', () => { if(showcaseActive) mouseClick = true; });
 window.addEventListener('pointerup', () => { mouseClick = false; });
