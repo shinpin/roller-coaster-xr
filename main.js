@@ -524,9 +524,25 @@ function processRideEvents(p, mapP, lastP, delta) {
     for (let c of State.coinsData) {
         if (c.active) {
             if(!nextCoin && c.t > mapP) nextCoin = c;
-            if (crossedInterval(c.t)) {
+            const timeDiff = c.t - mapP;
+            // 1. Magnetic pull check (Magnetic radius: timeDiff < 0.005, laneDist < 2.5)
+            if (timeDiff > 0 && timeDiff < 0.005) {
                 const laneDist = Math.abs(p.currentLaneOffset - (c.lane * 2.2));
-                if (laneDist < 1.5) { 
+                if (laneDist < 2.5) {
+                    c.magnetizingTo = p;
+                }
+            }
+
+            // Execute magnetic pull
+            if (c.magnetizingTo && c.magnetizingTo.cartGroup) {
+                c.coin.position.lerp(c.magnetizingTo.cartGroup.position, delta * 15.0);
+                c.coin.scale.setScalar(Math.max(0.1, c.coin.scale.x - delta * 2));
+            }
+
+            // Actual collection check
+            if (crossedInterval(c.t) || (c.magnetizingTo === p && timeDiff <= 0.001)) {
+                const laneDist = Math.abs(p.currentLaneOffset - (c.lane * 2.2));
+                if (laneDist < 1.5 || c.magnetizingTo === p) { 
                     c.active = false; c.coin.visible = false;
                     const pIdx = p.id - 1;
                     const baseW = window.innerWidth;
@@ -690,13 +706,23 @@ function updateCameraRig(p, delta, localLook, tangent, slopeImpact) {
 
     for (const w of State.wheelsData) w.rotation.x -= p.currentSpeed * delta * 1500;
     
+    // 2. Camera Shake logic (Stronger in flat-screen, mild in VR to prevent sickness)
+    const isHighSpeed = p.currentSpeed > State.baseSpeed * 2.0;
+    const shakeIntensity = p.isBoosting ? 0.6 : (isHighSpeed ? Math.max(0, (p.currentSpeed / State.baseSpeed) * 0.1) : 0);
+    
     if (renderer.xr.isPresenting && p.id === 1) {
+        // VR Mode: Minimal shake
+        _camPosVec.addScaledVector(_normalVec, (Math.random() - 0.5) * shakeIntensity * 0.2);
+        _camPosVec.addScaledVector(_binormalVec, (Math.random() - 0.5) * shakeIntensity * 0.2);
         p.rig.position.copy(_camPosVec);
         _lookPosVec.addScaledVector(_normalVec, 1.2);
         _lookPosVec.addScaledVector(_binormalVec, p.currentLaneOffset * 0.82);
         p.rig.up.copy(_normalVec);
         p.rig.lookAt(_lookPosVec);
     } else {
+        // Web Mode: Full intense shake
+        _camPosVec.addScaledVector(_normalVec, (Math.random() - 0.5) * shakeIntensity);
+        _camPosVec.addScaledVector(_binormalVec, (Math.random() - 0.5) * shakeIntensity);
         p.cam.position.copy(_camPosVec);
         _lookPosVec.addScaledVector(_normalVec, 1.2);
         _lookPosVec.addScaledVector(_binormalVec, p.currentLaneOffset * 0.82);
@@ -858,6 +884,13 @@ function animate() {
             const gravityBonus = slopeImpact * State.baseSpeed * 4.0;
             const finalTargetSpeed = p.targetSpeed + gravityBonus;
             
+            // 3. Dynamic Difficulty Curve: Base speed scales up over distance
+            // Max base speed caps at 2.5x the initial base speed
+            const initialBaseSpeed = 0.0007; // From State init
+            const progressRatio = Math.floor(p.rideProgress); // Increases by 1 every loop
+            const dynamicBaseSpeed = Math.min(initialBaseSpeed * 2.5, State.baseSpeed + (delta * 0.00001) * Math.max(1, progressRatio));
+            State.baseSpeed = dynamicBaseSpeed;
+
             // 將當前速度平滑漸變 (Lerp) 至受重力影響的目標速度 (加速時反應更快)
             p.currentSpeed = THREE.MathUtils.lerp(p.currentSpeed, finalTargetSpeed, delta * (p.isBoosting ? 5.0 : 1.5));
             
