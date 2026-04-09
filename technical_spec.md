@@ -72,5 +72,21 @@ roller-coaster/
     進入 WebXR 時，關閉分割畫面，將主相機綁定至 XR 控制器內，並調用 `updateVrHud`，提供原生的雙眼渲染與 6-DOF (六自由度) 體驗。
 
 ## 6. 改進潛力與擴充建議 (Future Possibilities)
-*   如果未來場景增多，可引入 **GLTFLoader** 取代目前的程式化原生幾何圖形拼湊，使模型（例如：櫻花樹、鳥居）更細緻。
 *   音效可嘗試導入 **Three.PositionalAudio** 以實現真實的 3D 空間音效 (Spatial Audio)。
+
+## 7. 架構升級計畫 (Upcoming Architectural Upgrades)
+為了支援更精緻的美術表現與一致的跨平台體驗 (Web & VR)，系統即將導入以下兩項架構升級：
+
+### 7.1 外部 3D 模型支援 (External 3D Assets Pipeline)
+摒棄純程式生成的基礎幾何體，改採資料驅動 (Data-Driven) 的模型載入系統：
+*   **格式標準化**：全面採用 `.GLB` 作為標準模型格式 (支援從 Blender, 3ds Max 或是 AI 3D 產出工具匯出)。
+*   **非同步載入系統**：於專案中實作 `THREE.GLTFLoader`，統一載入位於 `assets/models/` 下的靜態資源。
+*   **效能優化 (Instancing)**：對於軌道周圍數量龐大的環境物件 (如幾百棵櫻花樹)，將於載入後採用 `THREE.InstancedMesh` 繪製，確保沉浸式體驗能穩定維持高 FPS。
+
+### 7.2 跨平台 3D UI 引擎 (Unified 3D UI Engine)
+為了解決傳統 HTML DOM 無法在 VR 中直接互動的痛點，系統選定 **`three-mesh-ui`** 進行介面重構。
+*   **實作方法**：宣告 3D 空間中的區塊 (Block) 與字體 (Text)，並利用類似 CSS Flexbox 的排版邏輯設計懸浮的科技面板。
+*   **統一互動**：
+    *   電腦 Web 端：配置 `THREE.Raycaster` 捕捉滑鼠的 `pointermove` 與 `pointerdown` 事件觸發。
+    *   VR 頭戴端：利用手把的雷射射線結合 `select` 事件觸發同一個按鈕。
+    *   如此即可只維護一套 UI，完美對應普通螢幕與虛擬實境空間。
