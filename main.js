@@ -284,7 +284,7 @@ const bokehPass = new BokehPass(scene, camera, { focus: 30.0, aperture: 0.0001, 
 bokehPass.enabled = false; 
 composer.addPass(bokehPass);
 const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-bloomPass.threshold = 0.15; bloomPass.strength = 0.8; bloomPass.radius = 0.5;    
+bloomPass.threshold = 0.15; bloomPass.strength = 0.16; bloomPass.radius = 0.5;    
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 
