@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { initVrHud, showVrHud, hideVrHud, updateVrHud } from './js/vrHud.js';
 
 import { TRACK_SEGMENTS } from './js/config.js';
@@ -15,6 +16,37 @@ import { initUI, updateHUD, showCoinScoreEffect, flashScore, updateDebugPanel, u
 import { buildScene, currentDirLight, createCartModel } from './js/trackGenerator.js';
 import ThreeMeshUI from 'three-mesh-ui';
 import { create3DMenu, interactiveUIMeshes } from './js/menu3d.js';
+
+// --- GLB Cart Loader (P1 & P2) ---
+const _gltfLoader = new GLTFLoader();
+/**
+ * Loads a .glb file and returns { cartGroup, wheelsData }.
+ * Falls back to createCartModel() if loading fails.
+ */
+function loadGlbCart(url, fallbackColor, fallbackNum) {
+    return new Promise((resolve) => {
+        _gltfLoader.load(
+            url,
+            (gltf) => {
+                const cartGroup = gltf.scene;
+                // Enable shadows on all meshes inside the GLB
+                cartGroup.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                // GLB models don't expose individual wheels — return empty array
+                resolve({ cartGroup, wheelsData: [] });
+            },
+            undefined,
+            (err) => {
+                console.warn('GLB load failed, using procedural cart:', url, err);
+                resolve(createCartModel(fallbackColor, false, fallbackNum));
+            }
+        );
+    });
+}
 // --- Global Renderer Setup ---
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
@@ -51,7 +83,7 @@ playerRig.add(xrRig);
 
 renderer.xr.addEventListener('sessionstart', () => {
     xrRig.add(camera);
-    playerRig.add(cartGroup);
+    playerRig.add(cartGroup); // cartGroup may be GLB or procedural at this point
     // local-floor: origin is at floor. Offset down by standing eye-height so
     // the player feels seated in the cart (~1.6 m offset).
     xrRig.position.set(0, -1.6, 0);
@@ -64,7 +96,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 renderer.xr.addEventListener('sessionend', () => {
     scene.add(camera);
-    camera.add(cartGroup);
+    camera.add(cartGroup); // re-attach current cartGroup back to camera
     hideVrHud();
     xrRig.position.set(0, 0, 0);
 });
@@ -111,19 +143,46 @@ if (vrBtn) {
     document.getElementById('vr-btn-container').appendChild(vrBtn);
 }
 
-// --- Player 1 Cart Model ---
-const { cartGroup, wheelsData } = createCartModel(0xdd1111, false, '01');
-State.wheelsData.push(...wheelsData);
+// --- Player 1 Cart Model (Lego_car01.glb) ---
+// Placeholder group attached immediately; replaced by GLB once loaded
+let cartGroup = new THREE.Group();
+let wheelsData = [];
 camera.add(cartGroup);
-cartGroup.scale.setScalar(0.675 * 0.8); 
-cartGroup.position.set(0, -1.0, -1.0);  
+cartGroup.scale.setScalar(0.35);
+cartGroup.position.set(0, -1.0, -1.0);
 
-// --- Player 2 Cart Model ---
-const p2 = createCartModel(0x1111dd, false, '02');
-State.wheelsData.push(...p2.wheelsData);
-camera2.add(p2.cartGroup);
-p2.cartGroup.scale.setScalar(0.675 * 0.8); 
-p2.cartGroup.position.set(0, -1.0, -1.0);  
+// --- Player 2 Cart Model (Lego_car0101.glb) ---
+let p2CartGroup = new THREE.Group();
+let p2WheelsData = [];
+camera2.add(p2CartGroup);
+p2CartGroup.scale.setScalar(0.20);
+p2CartGroup.position.set(0, -1.0, -1.0);
+
+// Async GLB load — swap placeholder once ready
+loadGlbCart('assets/models/Lego_car01.glb', 0xdd1111, '01').then(({ cartGroup: g1, wheelsData: w1 }) => {
+    camera.remove(cartGroup); // remove placeholder
+    cartGroup = g1;
+    wheelsData = w1;
+    State.wheelsData = State.wheelsData.filter(w => !w.__p1); // remove old placeholder wheels
+    State.wheelsData.push(...wheelsData);
+    camera.add(cartGroup);
+    cartGroup.scale.setScalar(0.35);
+    cartGroup.position.set(0, -1.0, -1.0);
+    // Update rig reference so VR sessionstart can use it
+    if (playerRig) playerRig.userData.cartGroup = cartGroup;
+});
+
+loadGlbCart('assets/models/Lego_car0101.glb', 0x1111dd, '02').then(({ cartGroup: g2, wheelsData: w2 }) => {
+    camera2.remove(p2CartGroup);
+    p2CartGroup = g2;
+    p2WheelsData = w2;
+    camera2.add(p2CartGroup);
+    p2CartGroup.scale.setScalar(0.20);
+    p2CartGroup.position.set(0, -1.0, -1.0);
+});
+
+// Keep legacy alias so existing code that references p2.cartGroup keeps working
+const p2 = { get cartGroup() { return p2CartGroup; }, get wheelsData() { return p2WheelsData; } };
 
 // --- Menu Cart Showcase (INDEPENDENT renderer, scene, camera) ---
 // This completely avoids all main scene conflicts (buildScene clearing, lighting, etc.)
@@ -152,17 +211,113 @@ const scRim = new THREE.PointLight(0xff00aa, 4, 30);
 scRim.position.set(-3, 2, -5);
 showcaseScene.add(scRim);
 
-// Create the showcase cart model
-const showcaseCart = createCartModel(0x00ffcc, true, '★');
-showcaseScene.add(showcaseCart.cartGroup);
-    showcaseScene.add(showcaseCart.cartGroup);
-    showcaseCart.cartGroup.scale.setScalar(3.0); // 2x larger
-    showcaseCart.cartGroup.position.set(0, -1.2, 0); // Moved down
+// ── Car Roster (5 cars) ───────────────────────────────────────────────────────
+// Define roster: first 2 are GLB, rest are procedural
+const CAR_ROSTER_DEFS = [
+    { label: 'Lego Racer I',   type: 'glb',  url: 'assets/models/Lego_car01.glb',    fallbackColor: 0xff2244, num: '01', showcaseScale: 1.8, showcaseY: -0.6 },
+    { label: 'Lego Racer II',  type: 'glb',  url: 'assets/models/Lego_car0101.glb',  fallbackColor: 0x2244ff, num: '02', showcaseScale: 1.2, showcaseY: -0.8 },
+    { label: 'Neon Crimson',   type: 'proc', color: 0xff2244, num: '03', showcaseScale: 3.0, showcaseY: -1.2 },
+    { label: 'Cyber Blue',     type: 'proc', color: 0x2255ff, num: '04', showcaseScale: 3.0, showcaseY: -1.2 },
+    { label: 'Acid Green',     type: 'proc', color: 0x00ff88, num: '05', showcaseScale: 3.0, showcaseY: -1.2 },
+];
 
-// Remove the number tag sprite from the showcase (it shows "No.★" which looks odd)
-showcaseCart.cartGroup.children.forEach(child => {
-    if (child.isSprite) child.visible = false;
+// Loaded car groups — filled asynchronously
+const carRosterGroups = new Array(CAR_ROSTER_DEFS.length).fill(null);
+let selectedCarIndex = 0;   // which car P1 is using
+let activeShowcaseGroup = null;  // the THREE.Group currently in showcaseScene
+
+// Pre-build procedural cars right away
+CAR_ROSTER_DEFS.forEach((def, i) => {
+    if (def.type === 'proc') {
+        const result = createCartModel(def.color, false, def.num);
+        // Remove number sprite so showcase looks clean
+        result.cartGroup.children.forEach(c => { if (c.isSprite) c.visible = false; });
+        result.cartGroup.scale.setScalar(def.showcaseScale);
+        result.cartGroup.position.set(0, def.showcaseY, 0);
+        carRosterGroups[i] = { cartGroup: result.cartGroup, wheelsData: result.wheelsData };
+    }
 });
+
+// Async-load GLB cars
+CAR_ROSTER_DEFS.forEach((def, i) => {
+    if (def.type !== 'glb') return;
+    loadGlbCart(def.url, def.fallbackColor, def.num).then(({ cartGroup: g, wheelsData: w }) => {
+        g.scale.setScalar(def.showcaseScale);
+        g.position.set(0, def.showcaseY, 0);
+        // Remove any number sprites if procedural fallback
+        g.children.forEach(c => { if (c.isSprite) c.visible = false; });
+        carRosterGroups[i] = { cartGroup: g, wheelsData: w };
+        // If this is the currently displayed car, swap it in
+        if (i === selectedCarIndex) _applyShowcaseCar(i);
+        // Also set P1 / P2 game carts from the GLB once loaded
+        if (i === selectedCarIndex) _applyP1Car(i);
+        if (i === (selectedCarIndex + 1) % CAR_ROSTER_DEFS.length) _applyP2Car(i);
+    });
+});
+
+function _applyShowcaseCar(idx) {
+    const def = CAR_ROSTER_DEFS[idx];
+    const loaded = carRosterGroups[idx];
+    if (!loaded) return; // not ready yet
+    if (activeShowcaseGroup) showcaseScene.remove(activeShowcaseGroup);
+    activeShowcaseGroup = loaded.cartGroup;
+    showcaseScene.add(activeShowcaseGroup);
+    // Reset transform
+    activeShowcaseGroup.scale.setScalar(def.showcaseScale);
+    activeShowcaseGroup.position.set(0, def.showcaseY, 0);
+    activeShowcaseGroup.rotation.set(0, 0, 0);
+    // Update UI badge
+    const nameEl = document.getElementById('car-name-label');
+    const idxEl  = document.getElementById('car-index-label');
+    if (nameEl) {
+        nameEl.style.opacity = '0'; nameEl.style.transform = 'translateY(6px)';
+        setTimeout(() => { nameEl.textContent = def.label; nameEl.style.opacity = '1'; nameEl.style.transform = ''; }, 150);
+    }
+    if (idxEl) idxEl.textContent = `${idx + 1} / ${CAR_ROSTER_DEFS.length}`;
+}
+
+function _applyP1Car(idx) {
+    const loaded = carRosterGroups[idx];
+    if (!loaded) return;
+    const def = CAR_ROSTER_DEFS[idx];
+    camera.remove(cartGroup);
+    cartGroup = loaded.cartGroup.clone();
+    wheelsData = [];
+    cartGroup.scale.setScalar(def.type === 'glb' ? 0.70 : 0.675 * 1.6);
+    cartGroup.position.set(0, -1.0, -1.0);
+    camera.add(cartGroup);
+}
+
+function _applyP2Car(idx) {
+    const loaded = carRosterGroups[idx];
+    if (!loaded) return;
+    const def = CAR_ROSTER_DEFS[idx];
+    camera2.remove(p2CartGroup);
+    p2CartGroup = loaded.cartGroup.clone();
+    p2WheelsData = [];
+    p2CartGroup.scale.setScalar(def.type === 'glb' ? 0.40 : 0.675 * 1.6);
+    p2CartGroup.position.set(0, -1.0, -1.0);
+    camera2.add(p2CartGroup);
+}
+
+function switchCar(dir) {
+    selectedCarIndex = (selectedCarIndex + dir + CAR_ROSTER_DEFS.length) % CAR_ROSTER_DEFS.length;
+    _applyShowcaseCar(selectedCarIndex);
+    // If loaded, also set game carts
+    const p2Idx = (selectedCarIndex + 1) % CAR_ROSTER_DEFS.length;
+    _applyP1Car(selectedCarIndex);
+    _applyP2Car(p2Idx);
+}
+
+// Wire-up buttons
+document.getElementById('car-prev-btn').addEventListener('click', () => switchCar(-1));
+document.getElementById('car-next-btn').addEventListener('click', () => switchCar(+1));
+
+// Show first car
+_applyShowcaseCar(0);
+// Apply first GLB/proc to P1 & P2 immediately if already loaded
+_applyP1Car(0);
+_applyP2Car(1);
 
 let showcaseActive = true;
 const showcaseClock = new THREE.Clock();
@@ -171,15 +326,20 @@ function updateShowcase() {
     if (!showcaseActive) return;
     const dt = showcaseClock.getDelta();
     const t = showcaseClock.getElapsedTime();
-    
-    // Slow turntable rotation (1/5th speed)
-    showcaseCart.cartGroup.rotation.y = t * 0.08;
-    showcaseCart.cartGroup.rotation.z = Math.sin(t * 1.5) * 0.05;
-    showcaseCart.cartGroup.position.y = -1.2 + Math.sin(t * 2) * 0.15;
-    
-    // Spin wheels
-    showcaseCart.wheelsData.forEach(w => w.rotation.x += dt * 8);
-    
+
+    if (activeShowcaseGroup) {
+        const def = CAR_ROSTER_DEFS[selectedCarIndex];
+        // Slow turntable rotation
+        activeShowcaseGroup.rotation.y = t * 0.08;
+        activeShowcaseGroup.rotation.z = Math.sin(t * 1.5) * 0.05;
+        activeShowcaseGroup.position.y = def.showcaseY + Math.sin(t * 2) * 0.15;
+        // Spin procedural wheels (GLB has none to spin via wheelsData)
+        const rosterEntry = carRosterGroups[selectedCarIndex];
+        if (rosterEntry && rosterEntry.wheelsData) {
+            rosterEntry.wheelsData.forEach(w => w.rotation.x += dt * 8);
+        }
+    }
+
     // Resize canvas to match its CSS display size
     const rect = showcaseCanvas.getBoundingClientRect();
     const w = rect.width;
@@ -189,7 +349,7 @@ function updateShowcase() {
         showcaseCamera.aspect = w / h;
         showcaseCamera.updateProjectionMatrix();
     }
-    
+
     showcaseRenderer.render(showcaseScene, showcaseCamera);
 }
 
@@ -303,9 +463,10 @@ State.players[1].hl = headLight2;
 window.startGame = function() {
     if (State.isRiding) return;
     State.isRiding = true;
-    // Hide the independent showcase renderer
+    // Hide the independent showcase renderer (canvas + selector bar)
     showcaseActive = false;
-    showcaseCanvas.style.display = 'none';
+    const _scWrapper = document.getElementById('cart-showcase-wrapper');
+    if (_scWrapper) _scWrapper.style.display = 'none';
     State.baseSpeed = parseFloat(document.getElementById('speed-select').value) || 0.0007;
 
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -928,7 +1089,8 @@ function animate() {
     } else {
          // Update the independent showcase renderer (separate canvas)
          showcaseActive = true;
-         showcaseCanvas.style.display = 'block';
+         const _scWrapper2 = document.getElementById('cart-showcase-wrapper');
+         if (_scWrapper2) _scWrapper2.style.display = 'flex';
          updateShowcase();
 
      if (renderer.xr.isPresenting) {

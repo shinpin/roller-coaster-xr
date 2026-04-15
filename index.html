@@ -74,8 +74,19 @@
             </div>
         </div>
 
-        <!-- 3D Cart Showcase (independent renderer, outside start-screen for correct positioning) -->
-        <canvas id="cart-showcase"></canvas>
+        <!-- 3D Cart Showcase + Car Selector -->
+        <div id="cart-showcase-wrapper">
+            <canvas id="cart-showcase"></canvas>
+            <!-- Car selector bar -->
+            <div id="car-selector-bar">
+                <button id="car-prev-btn" class="car-switch-btn" aria-label="Previous car">&#9664;</button>
+                <div id="car-name-badge">
+                    <span id="car-index-label">1 / 5</span>
+                    <span id="car-name-label">Lego Racer I</span>
+                </div>
+                <button id="car-next-btn" class="car-switch-btn" aria-label="Next car">&#9654;</button>
+            </div>
+        </div>
 
         <div id="start-screen">
 
