@@ -25,7 +25,8 @@ export function initUI(callbacks) {
             collisionOverlay: document.getElementById(`collision-overlay-${i}`),
             leaderboardUI: document.getElementById(`leaderboard-${i}`),
             envVal: document.getElementById(`env-val-${i}`),
-            rankVal: document.getElementById(`rank-val-${i}`)
+            rankVal: document.getElementById(`rank-val-${i}`),
+            rankTotalEl: document.getElementById(`rank-total-${i}`)
         });
         lastStateTexts[i-1] = { speed: '', alt: '', head: '', g: '', pitch: '', rank: 1, combo: '', racersStr: '' };
     }
@@ -127,6 +128,11 @@ export function updateHUD(data, playerIndex) {
     if (data.rank && data.rank !== last.rank) {
         if (UI.rankVal) UI.rankVal.innerText = data.rank;
         last.rank = data.rank;
+    }
+    // Update total racer count whenever racers list is refreshed
+    if (data.racers && UI.rankTotalEl) {
+        const total = data.racers.length;
+        if (UI.rankTotalEl.innerText !== String(total)) UI.rankTotalEl.innerText = total;
     }
 
     const altTxt = `${data.displayAlt}<span> m</span>`;

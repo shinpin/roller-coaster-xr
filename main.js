@@ -505,7 +505,7 @@ window.startGame = function() {
         if (audioCtx && audioCtx.state === 'suspended' && State.audioEnabled) audioCtx.resume();
         
         State.players.forEach(p => {
-            p.targetSpeed = 0; p.currentSpeed = State.baseSpeed * 1.5; 
+            p.targetSpeed = 0; p.currentSpeed = State.baseSpeed * 0.75; // start at new normal (half the old value)
             p.rideProgress = 0.0; p.lastProgress = 0.0; p.score = 0; 
             p.coinCombo = 0; p.comboText = ''; p.collisionFlashUntil = 0;
             p.isBoosting = false;
@@ -1026,12 +1026,12 @@ function animate() {
             const bUI = document.getElementById('boost-alert-' + (idx+1));
             
             if (p.isBoosting) {
-                p.targetSpeed = State.baseSpeed * 3.5;
+                p.targetSpeed = State.baseSpeed * 3.5;   // Boost: unchanged
                 if(bUI) bUI.classList.remove('hidden');
                 p.hl.intensity = 60; 
                 p.hl.color.setHex(State.currentTheme.accent[1] || 0xffffff);
             } else {
-                p.targetSpeed = State.baseSpeed;
+                p.targetSpeed = State.baseSpeed * 0.5;   // Normal: 50% — much slower than boost
                 if(bUI) bUI.classList.add('hidden');
                 p.hl.intensity = State.currentTheme.type === 'sky' ? 0 : 25; 
                 p.hl.color.setHex(0xffffff);
@@ -1055,8 +1055,9 @@ function animate() {
             // 將當前速度平滑漸變 (Lerp) 至受重力影響的目標速度 (加速時反應更快)
             p.currentSpeed = THREE.MathUtils.lerp(p.currentSpeed, finalTargetSpeed, delta * (p.isBoosting ? 5.0 : 1.5));
             
-            // 限制安全極速與最低攀爬引擎怠速，避免倒退或飛出軌道
-            p.currentSpeed = Math.max(State.baseSpeed * 0.3, Math.min(p.currentSpeed, State.baseSpeed * 8.0));
+            // 限制安全極速與最低攀爬引擎怠速
+            // Min clamp uses 0.15 (was 0.3) to match the halved normal speed
+            p.currentSpeed = Math.max(State.baseSpeed * 0.15, Math.min(p.currentSpeed, State.baseSpeed * 8.0));
             
             p.rideProgress += p.currentSpeed * delta * 60; 
 
