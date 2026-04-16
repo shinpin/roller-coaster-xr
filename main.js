@@ -10,7 +10,7 @@ import { initVrHud, showVrHud, hideVrHud, updateVrHud } from './js/vrHud.js';
 
 import { TRACK_SEGMENTS } from './js/config.js';
 import { State } from './js/state.js';
-import { setupAudio, playCoinSound, playBoostSound, updateEngineAudio, audioCtx } from './js/audio.js';
+import { setupAudio, playCoinSound, playBoostSound, updateEngineAudio, updateUphillAudio, audioCtx } from './js/audio.js';
 import { setupInput, setupXRInput } from './js/input.js';
 import { initUI, updateHUD, showCoinScoreEffect, flashScore, updateDebugPanel, updateMinimap, showMatchResult, hideMatchResult } from './js/ui.js';
 import { buildScene, currentDirLight, createCartModel } from './js/trackGenerator.js';
@@ -50,15 +50,27 @@ function loadGlbCart(url, fallbackColor, fallbackNum) {
 // --- Global Renderer Setup ---
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-const playerRig = new THREE.Group();
-const playerRig2 = new THREE.Group();
+const playerRig = new THREE.Group(); playerRig.userData.isCore = true;
+const playerRig2 = new THREE.Group(); playerRig2.userData.isCore = true;
 scene.add(playerRig);
 scene.add(playerRig2);
 
-const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500);
-const camera2 = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500);
+const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500); camera.userData.isCore = true;
+const camera2 = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1500); camera2.userData.isCore = true;
 scene.add(camera);
 scene.add(camera2);
+
+// --- Camera Layer Configuration ---
+// Layer 0: Global Environment (track, trees)
+// Layer 1/2: P1/P2 Avatar cars (hidden from self, visible to other)
+// Layer 3/4: P1/P2 HUD and FX (visible to self, hidden from other)
+camera.layers.enable(0);
+camera.layers.disable(1); camera.layers.enable(2);
+camera.layers.enable(3); camera.layers.disable(4);
+
+camera2.layers.enable(0);
+camera2.layers.enable(1); camera2.layers.disable(2);
+camera2.layers.disable(3); camera2.layers.enable(4);
 
 State.players = [
     { id: 1, lane: -1, currentLaneOffset: 0, currentSpeed: 0, targetSpeed: 0, isBoosting: false, rideProgress: 0, score: 0, rank: 1, vrGForce: 1, coinCombo: 0, comboText: '', collisionFlashUntil: 0 },
@@ -103,6 +115,7 @@ renderer.xr.addEventListener('sessionend', () => {
 
 // Setup XR Controller Raycaster
 const xrController = renderer.xr.getController(0);
+xrController.userData.isCore = true;
 xrController.addEventListener('selectstart', () => { xrController.userData.selectPressed = true; });
 xrController.addEventListener('selectend', () => { xrController.userData.selectPressed = false; });
 scene.add(xrController);
@@ -214,11 +227,13 @@ showcaseScene.add(scRim);
 // ── Car Roster (5 cars) ───────────────────────────────────────────────────────
 // Define roster: first 2 are GLB, rest are procedural
 const CAR_ROSTER_DEFS = [
-    { label: 'Lego Racer I',   type: 'glb',  url: 'assets/models/Lego_car01.glb',    fallbackColor: 0xff2244, num: '01', showcaseScale: 1.8, showcaseY: -0.6 },
-    { label: 'Lego Racer II',  type: 'glb',  url: 'assets/models/Lego_car0101.glb',  fallbackColor: 0x2244ff, num: '02', showcaseScale: 1.2, showcaseY: -0.8 },
-    { label: 'Neon Crimson',   type: 'proc', color: 0xff2244, num: '03', showcaseScale: 3.0, showcaseY: -1.2 },
-    { label: 'Cyber Blue',     type: 'proc', color: 0x2255ff, num: '04', showcaseScale: 3.0, showcaseY: -1.2 },
-    { label: 'Acid Green',     type: 'proc', color: 0x00ff88, num: '05', showcaseScale: 3.0, showcaseY: -1.2 },
+    { label: 'Rabbit',   type: 'proc', url: 'assets/models/CAR01_rabbit.glb',  color: 0xffaaaa, num: '01', modelScale: 0.1, modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 },
+    { label: 'Fox',      type: 'proc', url: 'assets/models/CAR02_FOX.glb',     color: 0xff8822, num: '02', modelScale: 0.1, modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 },
+    { label: 'Seadog',   type: 'proc', url: 'assets/models/CAR03_seadog.glb',  color: 0x44aaff, num: '03', modelScale: 0.2, modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 },
+    { label: 'Monkey',   type: 'proc', url: 'assets/models/CAR04_,mokey.glb',  color: 0xaa8844, num: '04', modelScale: 0.1, modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 },
+    { label: 'Tiger',    type: 'proc', url: 'assets/models/CAR05_tiger.glb',   color: 0xff6600, num: '05', modelScale: 0.1, modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 },
+    { label: 'Giraffe',  type: 'proc', url: 'assets/models/CAR06_giraffe.glb', color: 0xddcc44, num: '06', modelScale: 5.0,  modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 },
+    { label: 'Panda',    type: 'proc', url: 'assets/models/CAR07_panda.glb',   color: 0xffffff, num: '07', modelScale: 5.0,  modelRotateY: -Math.PI / 2, showcaseScale: 0.7, showcaseY: -0.6 }
 ];
 
 // Loaded car groups — filled asynchronously
@@ -241,11 +256,17 @@ CAR_ROSTER_DEFS.forEach((def, i) => {
 // Async-load GLB cars
 CAR_ROSTER_DEFS.forEach((def, i) => {
     if (def.type !== 'glb') return;
-    loadGlbCart(def.url, def.fallbackColor, def.num).then(({ cartGroup: g, wheelsData: w }) => {
+    loadGlbCart(def.url, def.fallbackColor, def.num).then(({ cartGroup: rawG, wheelsData: w }) => {
+        // Wrap the loaded mesh to allow static orientation offset
+        const g = new THREE.Group();
+        if (def.modelRotateY) rawG.rotation.y = def.modelRotateY;
+        if (def.modelScale) rawG.scale.setScalar(def.modelScale);
+        g.add(rawG);
+        
         g.scale.setScalar(def.showcaseScale);
         g.position.set(0, def.showcaseY, 0);
         // Remove any number sprites if procedural fallback
-        g.children.forEach(c => { if (c.isSprite) c.visible = false; });
+        rawG.children.forEach(c => { if (c.isSprite) c.visible = false; });
         carRosterGroups[i] = { cartGroup: g, wheelsData: w };
         // If this is the currently displayed car, swap it in
         if (i === selectedCarIndex) _applyShowcaseCar(i);
@@ -253,6 +274,8 @@ CAR_ROSTER_DEFS.forEach((def, i) => {
         if (i === selectedCarIndex) _applyP1Car(i);
         if (i === (selectedCarIndex + 1) % CAR_ROSTER_DEFS.length) _applyP2Car(i);
     });
+    // Try applying NPCs whenever models finish loading
+    _applyNPCCars();
 });
 
 function _applyShowcaseCar(idx) {
@@ -283,8 +306,15 @@ function _applyP1Car(idx) {
     camera.remove(cartGroup);
     cartGroup = loaded.cartGroup.clone();
     wheelsData = [];
-    cartGroup.scale.setScalar(def.type === 'glb' ? 0.70 : 0.675 * 1.6);
-    cartGroup.position.set(0, -1.0, -1.0);
+    cartGroup.scale.setScalar(def.type === 'glb' ? 0.375 : 0.675 * 1.6);
+    cartGroup.position.set(0, -2.0, -1.8);
+    cartGroup.visible = false;
+    
+    // Hide from own camera (Layer 0 is default. P1 car goes to Layer 1. P1 camera ignores Layer 1).
+    cartGroup.traverse(child => { child.layers.set(1); });
+    camera.layers.disable(1);
+    camera2.layers.enable(1); // P2 can see P1
+    
     camera.add(cartGroup);
 }
 
@@ -295,9 +325,42 @@ function _applyP2Car(idx) {
     camera2.remove(p2CartGroup);
     p2CartGroup = loaded.cartGroup.clone();
     p2WheelsData = [];
-    p2CartGroup.scale.setScalar(def.type === 'glb' ? 0.40 : 0.675 * 1.6);
-    p2CartGroup.position.set(0, -1.0, -1.0);
+    p2CartGroup.scale.setScalar(def.type === 'glb' ? 0.375 : 0.675 * 1.6);
+    p2CartGroup.position.set(0, -2.0, -1.8);
+    p2CartGroup.visible = false;
+    
+    // Hide from own camera (P2 car goes to Layer 2. P2 camera ignores Layer 2).
+    p2CartGroup.traverse(child => { child.layers.set(2); });
+    camera2.layers.disable(2);
+    camera.layers.enable(2); // P1 can see P2
+    
     camera2.add(p2CartGroup);
+}
+
+function _applyNPCCars() {
+    if (!State.npcs || State.npcs.length === 0) return;
+    State.npcs.forEach((npc, index) => {
+        // Offset starting car index to differ from P1 & P2
+        let offset = State.multiplayerMode ? 2 : 1;
+        let carIdx = (selectedCarIndex + offset + index) % CAR_ROSTER_DEFS.length;
+        const loaded = carRosterGroups[carIdx];
+        if (!loaded) return; 
+        
+        // Only replace if it doesn't already have the right group length (meaning it's the procedural cart)
+        // or just safely enforce swapping it out:
+        scene.remove(npc.cartGroup);
+        const def = CAR_ROSTER_DEFS[carIdx];
+        const newGroup = loaded.cartGroup.clone();
+        newGroup.scale.setScalar(def.type === 'glb' ? 0.375 : 0.675 * 1.6);
+        
+        newGroup.position.copy(npc.cartGroup.position);
+        newGroup.quaternion.copy(npc.cartGroup.quaternion);
+        
+        newGroup.visible = State.isRiding; // Hide early if we haven't started playing!
+
+        scene.add(newGroup);
+        npc.cartGroup = newGroup;
+    });
 }
 
 function switchCar(dir) {
@@ -307,6 +370,7 @@ function switchCar(dir) {
     const p2Idx = (selectedCarIndex + 1) % CAR_ROSTER_DEFS.length;
     _applyP1Car(selectedCarIndex);
     _applyP2Car(p2Idx);
+    _applyNPCCars();
 }
 
 // Wire-up buttons
@@ -432,8 +496,11 @@ for (let i = 0; i < speedLineCount; i++) {
     tempObj.scale.set(1, 1, Math.random() * 2.0 + 1.0); tempObj.updateMatrix();
     speedLineGroup.setMatrixAt(i, tempObj.matrix);
 }
+speedLineGroup.layers.set(3);
 camera.add(speedLineGroup);
 const speedLineGroup2 = speedLineGroup.clone();
+speedLineGroup2.material = speedLineGroup.material.clone();
+speedLineGroup2.layers.set(4);
 camera2.add(speedLineGroup2);
 
 // --- Post-Processing Pipeline ---
@@ -504,9 +571,10 @@ window.startGame = function() {
     
         if (audioCtx && audioCtx.state === 'suspended' && State.audioEnabled) audioCtx.resume();
         
-        State.players.forEach(p => {
+        State.players.forEach((p, idx) => {
             p.targetSpeed = 0; p.currentSpeed = State.baseSpeed * 0.75; // start at new normal (half the old value)
-            p.rideProgress = 0.0; p.lastProgress = 0.0; p.score = 0; 
+            p.rideProgress = idx * 0.002; p.lastProgress = p.rideProgress; p.score = 0; // Stagger P2 ahead of P1 
+            p.currentLaneOffset = p.lane * 10; // Start immediately in respective lanes
             p.coinCombo = 0; p.comboText = ''; p.collisionFlashUntil = 0;
             p.isBoosting = false;
         });
@@ -588,14 +656,15 @@ initUI({
     onSettingChange: () => {
         const t = document.getElementById('theme-select').value;
         const tm = document.getElementById('time-select').value;
-        const w = document.getElementById('weather-select').value;
         const sSelect = document.getElementById('saved-tracks-select');
         if(sSelect) sSelect.value = ""; 
-        buildScene(scene, camera, t, tm, w);
+        buildScene(scene, camera, t, tm);
+        _applyNPCCars();
         ensureMenuCart();
     },
     onLoadTrack: (conf) => {
-        buildScene(scene, camera, conf.theme, conf.time, conf.weather, conf.seed);
+        buildScene(scene, camera, conf.theme, conf.time, conf.seed);
+        _applyNPCCars();
         ensureMenuCart();
     },
     onTogglePerf: (key, value) => {
@@ -607,8 +676,6 @@ initUI({
             scene.traverse(c => { if(c.material) c.material.needsUpdate = true; });
         } else if (key === 'resolution') {
             renderer.setPixelRatio(value ? Math.min(window.devicePixelRatio, 2) : 1);
-        } else if (key === 'particles') {
-            if (State.weatherParticles) State.weatherParticles.visible = value;
         }
     }
 });
@@ -617,7 +684,8 @@ setupInput();
 setupXRInput(renderer, { onStart: window.startGame });
 
 // Initial Build
-buildScene(scene, camera, 'underwater', 'day', 'clear');
+buildScene(scene, camera, 'underwater', 'day');
+_applyNPCCars();
 ensureMenuCart(); // Create menu cart AFTER buildScene so it doesn't get cleared
 initVrHud(camera);
 
@@ -635,23 +703,7 @@ const _normalVec = new THREE.Vector3();
 function updateParticles(delta, time) {
     for(const anim of State.animatedObjects) { anim.update(time, delta); }
 
-    if(State.weatherParticles) {
-        const pCam = State.players[0].cam || camera;
-        if(State.currentWeather === 'rain') {
-            State.weatherParticles.position.set(pCam.position.x, pCam.position.y - ((time * 150) % 150), pCam.position.z); 
-        } else {
-            State.weatherParticles.position.copy(pCam.position); 
-            const pos = State.weatherParticles.geometry.attributes.position.array;
-            for(let i=0; i<pos.length; i+=3) {
-                if(State.currentWeather === 'snow') {
-                    pos[i+1] -= delta * 15; 
-                    pos[i] += Math.sin(time + i)*0.05; 
-                    if(pos[i+1] < -200) pos[i+1] = 200;
-                }
-            }
-            State.weatherParticles.geometry.attributes.position.needsUpdate = true;
-        }
-    }
+
 
     for(let i = State.coinParticlesData.length - 1; i >= 0; i--) {
         const p = State.coinParticlesData[i];
@@ -725,6 +777,8 @@ function processRideEvents(p, mapP, lastP, delta) {
                     for(let pk=0; pk<15; pk++) {
                         const pt = new THREE.Mesh(pGeo, pMat);
                         pt.position.copy(c.coin.position);
+                        // Assign coin explosion to the player's private layer
+                        pt.layers.set(pIdx === 0 ? 3 : 4);
                         _velVec.set((Math.random()-0.5)*30, Math.random()*25+5, (Math.random()-0.5)*30);
                         scene.add(pt);
                         State.coinParticlesData.push({ mesh: pt, vel: _velVec.clone(), life: 1.0 });
@@ -770,6 +824,7 @@ function updateNPCs(delta, time) {
 
     for (let i = 0; i < State.npcs.length; i++) {
         const npc = State.npcs[i];
+        if (!npc.cartGroup.visible) npc.cartGroup.visible = true; // Reveal cars when the ride officially runs
         
         // 1. AI Logic: Random Lane Switching
         if (time > npc.nextLaneDecisionTime) {
@@ -1015,12 +1070,21 @@ function animate() {
 
     updateParticles(delta, time);
 
+    // Make player cars visible when the game starts, hide them in menus
+    if (State.isRiding) {
+        if (cartGroup && !cartGroup.visible) cartGroup.visible = true;
+        if (typeof p2CartGroup !== 'undefined' && p2CartGroup && !p2CartGroup.visible) p2CartGroup.visible = true;
+    } else {
+        if (cartGroup && cartGroup.visible) cartGroup.visible = false;
+        if (typeof p2CartGroup !== 'undefined' && p2CartGroup && p2CartGroup.visible) p2CartGroup.visible = false;
+    }
+
     if (State.isRiding) {
         vrMenu.visible = false; // 掛載在 scene 上的選單在騎乘時需隱藏
         if (menuCartObj) menuCartObj.cartGroup.visible = false;
         
         const activePlayers = (State.multiplayerMode && !renderer.xr.isPresenting) ? State.players : [State.players[0]];
-        
+
         activePlayers.forEach((p, idx) => {
             p.lastProgress = p.rideProgress;
             const bUI = document.getElementById('boost-alert-' + (idx+1));
@@ -1039,10 +1103,13 @@ function animate() {
 
             // 計算軌道起伏與斜度 (Gravity Impact)
             const tangent = State.curve.getTangentAt(p.rideProgress % 1.0).normalize();
-            const slopeImpact = -tangent.y; // 往下是正數 (加速), 往上是負數 (減速)
+            const slopeImpact = -tangent.y; // 變負值代表下坡 (加速), 負值代表上坡 (減速)
             
-            // 將斜度化為巨大的動能增幅 (重力加成)
-            const gravityBonus = slopeImpact * State.baseSpeed * 4.0;
+            // 如果是在上坡，減輕重力懲罰，確保車輛可以順利爬升
+            let gravityBonus = slopeImpact * State.baseSpeed * 4.0;
+            if (slopeImpact < 0) {
+                gravityBonus = slopeImpact * State.baseSpeed * 0.4; // 上坡阻力大幅降低
+            }
             const finalTargetSpeed = p.targetSpeed + gravityBonus;
             
             // 3. Dynamic Difficulty Curve: Base speed scales up over distance
@@ -1052,12 +1119,11 @@ function animate() {
             const dynamicBaseSpeed = Math.min(initialBaseSpeed * 2.5, State.baseSpeed + (delta * 0.00001) * Math.max(1, progressRatio));
             State.baseSpeed = dynamicBaseSpeed;
 
-            // 將當前速度平滑漸變 (Lerp) 至受重力影響的目標速度 (加速時反應更快)
+            // 平滑過渡當前速度
             p.currentSpeed = THREE.MathUtils.lerp(p.currentSpeed, finalTargetSpeed, delta * (p.isBoosting ? 5.0 : 1.5));
             
-            // 限制安全極速與最低攀爬引擎怠速
-            // Min clamp uses 0.15 (was 0.3) to match the halved normal speed
-            p.currentSpeed = Math.max(State.baseSpeed * 0.15, Math.min(p.currentSpeed, State.baseSpeed * 8.0));
+            // 限制絕對最低速度為 35%
+            p.currentSpeed = Math.max(State.baseSpeed * 0.35, Math.min(p.currentSpeed, State.baseSpeed * 8.0));
             
             p.rideProgress += p.currentSpeed * delta * 60; 
 
@@ -1079,8 +1145,10 @@ function animate() {
                 if (op.id !== p.id && op.rideProgress % 1.0 > p.rideProgress % 1.0) currentRank++;
             });
             p.rank = currentRank;
-
             updateHUDAndTelemetry(p, tangent, localLook, nextCoin, idx, time);
+            
+            // Add tick sound when climbing extremely steep slopes
+            updateUphillAudio(idx, p.currentSpeed, tangent.y, time);
         });
 
         updateNPCs(delta, time);

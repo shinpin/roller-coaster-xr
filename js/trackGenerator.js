@@ -8,14 +8,14 @@ import { updateEnvironmentUI } from './ui.js';
 export let currentDirLight = null;
 export let currentHemiLight = null;
 
-export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSeed = null) {
+export function buildScene(scene, camera, themeKey, timeKey, forceSeed = null) {
     if (themeKey === 'random') {
         const keys = Object.keys(THEMES);
         themeKey = keys[Math.floor(Math.random() * keys.length)];
     }
     
     const activeSeed = forceSeed !== null ? forceSeed : Math.floor(Math.random() * 9999999);
-    State.currentLevelConfig = { seed: activeSeed, theme: themeKey, time: timeKey, weather: weatherKey };
+    State.currentLevelConfig = { seed: activeSeed, theme: themeKey, time: timeKey };
     
     let localSeedState = activeSeed;
     function prng() {
@@ -30,7 +30,7 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
     try {
         State.currentTheme = THEMES[themeKey];
         State.currentTime = TIMES[timeKey];
-        State.currentWeather = weatherKey;
+
         
         updateEnvironmentUI();
 
@@ -47,13 +47,41 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
             bgMusic.src = bgmSrc;
             if (State.isRiding && State.audioEnabled && State.bgmEnabled) bgMusic.play().catch(e=>console.log(e));
         }
-
-        // Clean slate
-        while(scene.children.length > 0){ 
-            if(scene.children[0].geometry) scene.children[0].geometry.dispose();
-            if(scene.children[0].material) scene.children[0].material.dispose();
-            scene.remove(scene.children[0]);
+        // Clean slate safely, preserving core objects (cameras, player rigs)
+        const toRemove = [];
+        for (let i = 0; i < scene.children.length; i++) {
+            if (!scene.children[i].userData.isCore) {
+                toRemove.push(scene.children[i]);
+            }
         }
+        
+        function deepDispose(obj) {
+            if (!obj) return;
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                mats.forEach(m => {
+                    if (m.map) m.map.dispose();
+                    if (m.lightMap) m.lightMap.dispose();
+                    if (m.bumpMap) m.bumpMap.dispose();
+                    if (m.normalMap) m.normalMap.dispose();
+                    if (m.specularMap) m.specularMap.dispose();
+                    if (m.envMap) m.envMap.dispose();
+                    m.dispose();
+                });
+            }
+            if (obj.children) {
+                for (let c of obj.children) {
+                    deepDispose(c);
+                }
+            }
+        }
+
+        for (let obj of toRemove) {
+            deepDispose(obj);
+            scene.remove(obj);
+        }
+        
         State.animatedObjects = [];
         State.coinsData = [];
         State.boostRingsData = [];
@@ -66,10 +94,16 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         else if (themeKey === 'sky') bgTextureFile = 'assets/textures/PanoGen360_4K_cloud.jpg';
         else if (themeKey === 'synthwave') bgTextureFile = 'assets/textures/PanoGen360_4K_star.jpg';
         else if (themeKey === 'kyoto') bgTextureFile = 'assets/textures/Kyoto English.jpg';
+        else if (themeKey === 'taipei') bgTextureFile = 'assets/textures/PanoGen360_4K_taipei.jpg?v=2';
 
-        textureLoader.load(bgTextureFile + '?v=' + Date.now(), (texture) => {
+        textureLoader.load(bgTextureFile, (texture) => {
             texture.mapping = THREE.EquirectangularReflectionMapping;
             texture.colorSpace = THREE.SRGBColorSpace;
+            
+            // Dispose old background textures to prevent memory buildup
+            if (scene.background && scene.background.isTexture) scene.background.dispose();
+            if (scene.environment && scene.environment.isTexture && scene.environment !== scene.background) scene.environment.dispose();
+            
             scene.background = texture;
             scene.environment = texture; 
         });
@@ -148,11 +182,11 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
         // Generate NPCs
         // Vibrant neon colors
         const npcColors = [0x00FFFF, 0xFF00FF, 0xFFFF00, 0x00FF00, 0xFF6600];
-        for (let i = 0; i < 3; i++) {
+        const numNPCs = State.multiplayerMode ? 5 : 6;
+        for (let i = 0; i < numNPCs; i++) {
             const driverNum = "0" + (i + 2); // 02, 03, 04...
             const { cartGroup, wheelsData } = createCartModel(npcColors[i % npcColors.length], true, driverNum);
-            // Convert cartGroup materials to transparent / hologram-like? User requested collisions + random lane. 
-            // We'll leave them fully opaque for realism since they collide!
+            cartGroup.visible = false; // Hide while in the main menu
             scene.add(cartGroup);
             
             State.npcs.push({
@@ -173,62 +207,6 @@ export function buildScene(scene, camera, themeKey, timeKey, weatherKey, forceSe
 }
 
 function generateEnvironmentProps(scene) {
-    if (State.weatherParticles) State.weatherParticles.geometry.dispose();
-    if (State.currentWeather !== 'clear') {
-        const pCount = State.currentWeather === 'rain' ? 5600 : 800;
-        const pGeo = new THREE.BufferGeometry();
-        const pPos = new Float32Array(pCount * 3);
-        for(let i=0; i<pCount*3; i+=3) {
-            pPos[i] = (Math.random() - 0.5) * 400; 
-            pPos[i+1] = (Math.random() - 0.5) * 400; 
-            pPos[i+2] = (Math.random() - 0.5) * 400; 
-        }
-        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-        
-        function createParticleTex(type) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64; canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            if (type === 'snow') {
-                const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-                grad.addColorStop(0, 'rgba(255,255,255,1)');
-                grad.addColorStop(1, 'rgba(255,255,255,0)');
-                ctx.fillStyle = grad;
-                ctx.beginPath(); ctx.arc(32, 32, 32, 0, Math.PI*2); ctx.fill();
-            } else {
-                ctx.strokeStyle = 'rgba(200,220,255,0.7)';
-                ctx.lineWidth = 2; 
-                ctx.beginPath(); ctx.moveTo(32, 16); ctx.lineTo(32, 48); ctx.stroke();
-            }
-            return new THREE.CanvasTexture(canvas);
-        }
-        
-        if(State.currentWeather === 'rain') {
-            const rCount = 2500;
-            const rGeo = new THREE.CylinderGeometry(0.015, 0.015, 12, 3);
-            // Removed rotateX so rain points vertically down (Y-axis)
-            const rMat = new THREE.MeshBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0.5 });
-            State.weatherParticles = new THREE.InstancedMesh(rGeo, rMat, rCount);
-            const tObj = new THREE.Object3D();
-            for(let i=0; i<rCount; i++) {
-                // Spawn rain in a box above the player's head (Y: 0 to 150)
-                tObj.position.set((Math.random()-0.5)*150, Math.random()*150, (Math.random()-0.5)*150);
-                tObj.updateMatrix();
-                State.weatherParticles.setMatrixAt(i, tObj.matrix);
-            }
-        } else {
-            const pMat = new THREE.PointsMaterial({ 
-                color: new THREE.Color(0xffffff).multiplyScalar(1.5), 
-                size: 2.25, transparent: true, opacity: 0.9, 
-                map: createParticleTex('snow'), blending: THREE.AdditiveBlending 
-            });
-            State.weatherParticles = new THREE.Points(pGeo, pMat);
-        }
-        State.weatherParticles.visible = State.perf ? State.perf.particles : true;
-        scene.add(State.weatherParticles);
-    } else {
-        State.weatherParticles = null;
-    }
 
     const groundGeo = new THREE.PlaneGeometry(1200, 1200, 64, 64);
     const posAttribute = groundGeo.attributes.position;
@@ -256,7 +234,7 @@ function generateEnvironmentProps(scene) {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = State.currentTheme.type === 'sky' ? -150 : -60; 
     ground.receiveShadow = true;
-    if (State.currentTheme.type !== 'sky' && State.currentTheme.type !== 'abstract') {
+    if (State.currentTheme.type !== 'sky' && State.currentTheme.type !== 'abstract' && State.currentTheme.type !== 'city') {
         scene.add(ground);
     }
 
@@ -589,7 +567,7 @@ function generateTrack(scene) {
     const trackMat = new THREE.MeshStandardMaterial({ map: trackTexture, color: overlayColor, roughness: 0.3, metalness: 0.6 });
     const trackMain = new THREE.Mesh(trackGeo, trackMat);
     trackMain.castShadow = true; trackMain.receiveShadow = true;
-    scene.add(trackMain);
+    // scene.add(trackMain); // Removed standard board per user request, keeping only sleepers
 
     const neonGeoLeft = new THREE.TubeGeometry(State.curve, TRACK_SEGMENTS, 0.16, 4, true);
     const neonGeoRight = new THREE.TubeGeometry(State.curve, TRACK_SEGMENTS, 0.16, 4, true);
@@ -682,7 +660,7 @@ function generateTrack(scene) {
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 0.4, metalness: 0.8 });
     const pillarsGroup = new THREE.InstancedMesh(pillarGeo, pillarMat, pCount);
     let pIdx = 0;
-    const gY = State.currentTheme.type === 'sky' ? -150 : -60;
+    const gY = (State.currentTheme.type === 'sky' || State.currentTheme.type === 'city') ? -150 : -60;
     
     for (let i = 0; i < TRACK_POINTS; i += 2) {
         const t = i / TRACK_POINTS;

@@ -7,7 +7,8 @@ export const THEMES = {
     sky: { type: 'sky', bg: 0x55aaff, track: 0xffffff, ground: 0x3388cc, accent: [0xffffff, 0xeeeeee, 0xffddaa], fogExp: 0.005, groundWire: false },
     land: { type: 'land', bg: 0x4aacc5, track: 0x8B4513, ground: 0x228B22, accent: [0x228B22, 0x32CD32, 0x00ff00], fogExp: 0.008, groundWire: false },
     synthwave: { type: 'abstract', bg: 0x050510, track: 0x00f3ff, ground: 0x111122, accent: [0xff00ea, 0x00f3ff, 0x00ffaa], fogExp: 0.015, groundWire: true },
-    kyoto: { type: 'land', bg: 0xffe6f2, track: 0xdc143c, ground: 0x8F9779, accent: [0xff69b4, 0xffb6c1, 0xff1493], fogExp: 0.005, groundWire: false }
+    kyoto: { type: 'land', bg: 0xffe6f2, track: 0xdc143c, ground: 0x8F9779, accent: [0xff69b4, 0xffb6c1, 0xff1493], fogExp: 0.005, groundWire: false },
+    taipei: { type: 'city', bg: 0x223344, track: 0x8899aa, ground: 0x1a1a1a, accent: [0xff4444, 0x00f3ff, 0xffaa00], fogExp: 0.005, groundWire: false }
 };
 
 export const TIMES = {

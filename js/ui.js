@@ -82,7 +82,7 @@ function setupEventListeners(callbacks) {
 
     document.getElementById('theme-select').addEventListener('change', callbacks.onSettingChange);
     document.getElementById('time-select').addEventListener('change', callbacks.onSettingChange);
-    document.getElementById('weather-select').addEventListener('change', callbacks.onSettingChange);
+
 
     const savedTracksSelect = document.getElementById('saved-tracks-select');
     if (savedTracksSelect) {
@@ -91,7 +91,7 @@ function setupEventListeners(callbacks) {
                 const conf = JSON.parse(e.target.value);
                 document.getElementById('theme-select').value = conf.theme;
                 document.getElementById('time-select').value = conf.time;
-                document.getElementById('weather-select').value = conf.weather;
+
                 callbacks.onLoadTrack(conf);
             } else {
                 callbacks.onSettingChange();
@@ -256,7 +256,7 @@ export function showCoinScoreEffect(sx, sy, playerIndex, onComplete) {
 export function flashScore(playerIndex) {
     const u = UIs[playerIndex];
     if (u && u.scoreVal) {
-        u.scoreVal.innerText = State.players[playerIndex].score;
+        u.scoreVal.innerText = State.players[playerIndex].score.toLocaleString();
         u.scoreVal.classList.remove('score-bounce');
         void u.scoreVal.offsetWidth; 
         u.scoreVal.classList.add('score-bounce');
@@ -271,13 +271,11 @@ export function updateDebugPanel(text) {
 }
 
 export function updateEnvironmentUI() {
-    const weatherIcons = { 'clear': '☀️', 'rain': '🌧️', 'snow': '❄️' };
     const timeStrings = { 'day': '10:00 ', 'sunset': '17:30 ', 'night': '23:00 ' };
     UIs.forEach(u => {
         if (u && u.envVal) {
-            const wIcon = weatherIcons[State.currentWeather] || '☁️';
             const tStr = timeStrings[Object.keys(TIMES).find(k => TIMES[k] === State.currentTime)] || '12:00 ';
-            u.envVal.innerHTML = `${wIcon} ${tStr}`;
+            u.envVal.innerHTML = `${tStr}`;
         }
     });
 }
@@ -289,11 +287,11 @@ function getSavedTracks() {
     } catch(e) {}
     
     const defaultSaves = [
-        { slot: 1, name: "Sky Drift", config: { seed: 881023, theme: 'sky', time: 'day', weather: 'clear' } },
-        { slot: 2, name: "Neon Loop", config: { seed: 773124, theme: 'synthwave', time: 'night', weather: 'clear' } },
-        { slot: 3, name: "Abyss Run", config: { seed: 442911, theme: 'underwater', time: 'night', weather: 'clear' } },
-        { slot: 4, name: "Storm Peak", config: { seed: 221056, theme: 'land', time: 'sunset', weather: 'rain' } },
-        { slot: 5, name: "Icy Climb", config: { seed: 994038, theme: 'sky', time: 'sunset', weather: 'snow' } }
+        { slot: 1, name: "Sky Drift", config: { seed: 881023, theme: 'sky', time: 'day' } },
+        { slot: 2, name: "Neon Loop", config: { seed: 773124, theme: 'synthwave', time: 'night' } },
+        { slot: 3, name: "Abyss Run", config: { seed: 442911, theme: 'underwater', time: 'night' } },
+        { slot: 4, name: "Storm Peak", config: { seed: 221056, theme: 'land', time: 'sunset' } },
+        { slot: 5, name: "Icy Climb", config: { seed: 994038, theme: 'sky', time: 'sunset' } }
     ];
     try {
         localStorage.setItem('neon_coaster_saves', JSON.stringify(defaultSaves));

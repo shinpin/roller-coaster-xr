@@ -4,7 +4,7 @@ export const State = {
     // Current Environment
     currentTheme: THEMES.underwater,
     currentTime: TIMES.day,
-    currentWeather: 'clear',
+
     currentLevelConfig: null,
 
     // Ride Progress & Physics
@@ -21,7 +21,7 @@ export const State = {
     curve: null,
     frames: null,
     animatedObjects: [],
-    weatherParticles: null,
+
     boostRingsData: [],
     coinsData: [],
     npcs: [],
@@ -44,7 +44,7 @@ export const State = {
     perf: {
         bloom: true,
         shadows: true,
-        particles: true,
+
         highRes: true
     }
 };
